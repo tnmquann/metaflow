@@ -7,7 +7,7 @@ include { SOURMASH_MANYSKETCH } from './modules/sourmash/manysketch'
 include { SOURMASH_FASTMULTIGATHER } from './modules/sourmash/fastmultigather'
 include { YACHT } from './modules/yacht/yacht'
 include { PROCESS_RESULTS } from './modules/process_results'
-include { CLEANUP } from './modules/cleanup'
+// include { CLEANUP } from './modules/cleanup'
 
 workflow {
     merged_seqs = MERGE_SEQUENCES(params.trimmed_fastq)
@@ -27,10 +27,10 @@ workflow {
         manysketch_results.sketch_zip
     )
     
-    // Add cleanup as the final step
-    if (params.cleanup) {
-        CLEANUP(PROCESS_RESULTS.out)
-    }
+    // // Add cleanup as the final step
+    // if (params.cleanup) {
+    //     CLEANUP(PROCESS_RESULTS.out)
+    // }
 }
 
 workflow SOURMASH_ONLY {
