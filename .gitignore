@@ -1,0 +1,9 @@
+# Nextflow specific
+.nextflow/
+work/
+
+# Hidden files (starting with dot)
+.nextflow*
+
+# But keep .gitignore
+!.gitignore
