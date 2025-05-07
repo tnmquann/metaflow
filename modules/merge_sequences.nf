@@ -1,5 +1,5 @@
 process MERGE_SEQUENCES {
-    tag "Merging sequences"
+    tag { "Merging sequences from: ${trimmed_fastq.name}" }  // Changed this line to show input directory name
     label 'process_low'
 
     conda "${projectDir}/env/read_based.yaml"
