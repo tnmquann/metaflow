@@ -1,56 +1,60 @@
 process PROCESS_RESULTS {
-    tag "Processing final results"
-    publishDir "${params.outdir}", mode: 'copy'
-    
+    tag "Processing results for ${meta.id}"
+    label 'process_medium'
+
+    conda "${projectDir}/env/read_based.yaml"
+
+    publishDir "${params.outdir}/processed_results",
+        mode: params.publish_dir_mode,
+        saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
+
     input:
-    path text_files
-    path yacht_results 
-    path merged_seq
-    path manysketch
-    path sketch_zip
+    tuple val(meta), path(gather_csv)
+    tuple val(meta), path(yacht_xlsx)
 
     output:
-    path "final_results"
+    tuple val(meta), path("final_results"), emit: final_results
+    path "versions.yml", emit: versions
 
     script:
+    def prefix = task.ext.prefix ?: meta.id ?: 'results'
     """
-    # Create final_results directory
     mkdir -p final_results
+    mkdir -p temp_text_files
+    mkdir -p temp_yacht_results
 
-    # Process the data first
-    python ${params.workDir}/bin/py_scripts/1_process_sourmash.py -i ${text_files}/sourmash_gather_withrocksdb.csv -o ${text_files}/sourmash_mergedresults.csv
-    python ${params.workDir}/bin/py_scripts/2_process_yacht.py -d ${yacht_results}
-    python ${params.workDir}/bin/py_scripts/3_concat_yacht.py -d ${yacht_results}
-    python ${params.workDir}/bin/py_scripts/4_merged_yacht_sourmash.py -d1 final_results -d2 ${text_files} -d3 ${yacht_results}
+    cp ${gather_csv} temp_text_files/sourmash_gather_withrocksdb.csv
+    cp ${yacht_xlsx} temp_yacht_results/
 
-    # Create all target directories in base_dir
-    mkdir -p "${params.base_dir}/final_results"
-    if [ "${params.enable_copymergedseqs}" = "true" ]; then
-        mkdir -p "${params.base_dir}/merged_seq"
-    fi
-    if [ "${params.enable_copysketch}" = "true" ]; then
-        mkdir -p "${params.base_dir}/sketches"
-    fi
-    if [ "${params.enable_copyintermediate}" = "true" ]; then
-        mkdir -p "${params.base_dir}/intermediate_files"
-    fi
+    python ${projectDir}/bin/py_scripts/1_process_sourmash.py \\
+        -i temp_text_files/sourmash_gather_withrocksdb.csv \\
+        -o temp_text_files/sourmash_mergedresults.csv
 
-    # Copy files using cp -rL to resolve symlinks
-    cp -rL final_results/* "${params.base_dir}/final_results/"
+    python ${projectDir}/bin/py_scripts/2_process_yacht.py \\
+        -d temp_yacht_results
 
-    # Copy other directories if enabled, using cp -rL to resolve symlinks
-    if [ "${params.enable_copymergedseqs}" = "true" ]; then
-        cp -rL "${merged_seq}" "${params.base_dir}/merged_seq/"
-    fi
+    python ${projectDir}/bin/py_scripts/3_concat_yacht.py \\
+        -d temp_yacht_results
 
-    if [ "${params.enable_copysketch}" = "true" ]; then
-        cp -rL "${manysketch}" "${params.base_dir}/sketches/"
-        cp -L "${sketch_zip}" "${params.base_dir}/sketches/"
-    fi
+    python ${projectDir}/bin/py_scripts/4_merged_yacht_sourmash.py \\
+        -d1 final_results \\
+        -d2 temp_text_files \\
+        -d3 temp_yacht_results
 
-    if [ "${params.enable_copyintermediate}" = "true" ]; then
-        cp -rL "${text_files}" "${params.base_dir}/intermediate_files/"
-        cp -rL "${yacht_results}" "${params.base_dir}/intermediate_files/"
-    fi
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        python: \$(python --version 2>&1 | sed 's/Python //g')
+    END_VERSIONS
+    """
+
+    stub:
+    def prefix = task.ext.prefix ?: meta.id ?: 'results'
+    """
+    mkdir -p final_results
+    touch final_results/summary_${prefix}.txt
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        python: "stub_version"
+    END_VERSIONS
     """
 }
