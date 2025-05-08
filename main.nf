@@ -10,70 +10,98 @@ include { YACHT_RUN } from './modules/read_based/local/yacht/run'
 include { PROCESS_READBASED_RESULTS } from './modules/common/local/results/process_readbased'
 include { CLEANUP } from './modules/common/local/cleanup/main'
 
-// Main workflow
+// Function to create input channel based on CSV
+def create_input_channel_from_csv(csv_file) {
+    Channel
+        .fromPath(csv_file)
+        .splitCsv(header:true)
+        .map { row -> 
+            def meta = [
+                id: row.sample_id,
+                run_id: row.run_id,
+                group: row.group
+            ]
+            def reads = []
+            if (row.short_reads_1 && row.short_reads_2) {
+                reads = [
+                    file(row.short_reads_1),
+                    file(row.short_reads_2)
+                ]
+            }
+            if (row.long_reads) {
+                reads << file(row.long_reads)
+            }
+            return tuple(meta, reads)
+        }
+}
+
+// Function to create input channel from directory
+def create_input_channel_from_dir(dir_path) {
+    Channel
+        .fromFilePairs("${dir_path}/*_{1,2}.{fastq,fq}.gz")
+        .map { id, files -> 
+            def meta = [
+                id: id,
+                run_id: '0',
+                group: '0'
+            ]
+            return tuple(meta, files)
+        }
+}
+
 workflow {
     main:
-        // Create channel for input directory
-        ch_input_fastq = Channel.fromPath(params.trimmed_fastq)
+        // Create input channel based on input format
+        ch_input = params.input_format == 'csv' && params.input ? 
+            create_input_channel_from_csv(params.input) :
+            create_input_channel_from_dir(params.trimmed_fastq)
 
-        // Run MERGE_PAIREDENDSEQS on the input directory
-        MERGE_PAIREDENDSEQS(ch_input_fastq)
+        // Run MERGE_PAIREDENDSEQS on each sample
+        MERGE_PAIREDENDSEQS(ch_input)
 
-        // Create the manysketch.csv file content
-        ch_sourmash_manifest = MERGE_PAIREDENDSEQS.out.merged_seqs
-            .map { merged_seq_dir ->
-                def content = []
-                content << "name,genome_filename,protein_filename"
-                
-                // Process each merged file
-                file(merged_seq_dir).listFiles().each { file ->
-                    if (file.name.endsWith('.fastq.gz')) {
-                        def name = file.name.replace('.fastq.gz', '')
-                        content << "${name},${file.toString()},"
-                    }
+        // Group merged files by batch for SOURMASH_MANYSKETCH
+        ch_merged_batch = MERGE_PAIREDENDSEQS.out.merged_seqs
+            .map { meta, file -> file }
+            .collect()
+            .map { files ->
+                def content = ["name,genome_filename,protein_filename"]
+                files.each { file ->
+                    def name = file.name.replace('.fastq.gz', '')
+                    content << "${name},${file},"
                 }
-                return content.join('\n')
-            }
-            .map { content ->
                 def csv = file("${workflow.workDir}/manysketch_input.csv")
-                csv.text = content
+                csv.text = content.join('\n')
                 return csv
             }
 
-        // Run SOURMASH_MANYSKETCH with the CSV file
-        SOURMASH_MANYSKETCH(ch_sourmash_manifest)
+        // Continue with existing workflow
+        SOURMASH_MANYSKETCH(ch_merged_batch)
 
-        // Create metadata for batch processing - using the zip file
         ch_sourmash_sketches = SOURMASH_MANYSKETCH.out.sketch_zip_file
             .map { sketch_zip -> 
                 [ [id: 'batch'], sketch_zip ] 
             }
 
-        // Using the zip_files_dir output
         ch_sourmash_signatures = SOURMASH_MANYSKETCH.out.zip_files_dir
             .map { zip_dir -> 
                 [ [id: 'batch'], zip_dir ] 
             }
 
-        // Run SOURMASH_FASTMULTIGATHER with metadata
         SOURMASH_FASTMULTIGATHER(
             ch_sourmash_sketches,
             file(params.sourmash_database)
         )
 
-        // Run YACHT_RUN with metadata
         YACHT_RUN(
             ch_sourmash_signatures,
             file(params.yacht_database)
         )
 
-        // Process results
         PROCESS_READBASED_RESULTS(
             SOURMASH_FASTMULTIGATHER.out.gather_csv,
             YACHT_RUN.out.yacht_xlsx
         )
 
-        // Run cleanup if enabled
         if (params.cleanup) {
             CLEANUP(PROCESS_READBASED_RESULTS.out.final_results.collect())
         }
