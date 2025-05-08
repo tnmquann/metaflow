@@ -1,4 +1,4 @@
-process YACHT {
+process YACHT_RUN {
     tag "Running YACHT on batch samples"
     label 'process_high'
 

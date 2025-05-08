@@ -1,4 +1,4 @@
-process PROCESS_RESULTS {
+process PROCESS_READBASED_RESULTS {
     tag "Processing results for ${meta.id}"
     label 'process_medium'
 
