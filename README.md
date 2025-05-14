@@ -1,4 +1,4 @@
-# profiler_sourmash
+# `sourmash` Profiler
 
 A read-based shotgun metagenomics processing pipeline built using Nextflow DSL2, combining sourmash and YACHT tools for efficient taxonomic profiling.
 
