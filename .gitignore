@@ -7,3 +7,6 @@ work/
 
 # But keep .gitignore
 !.gitignore
+
+# Other files and directories to ignore
+instant_scripts/
