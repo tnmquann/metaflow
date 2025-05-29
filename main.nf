@@ -3,12 +3,12 @@
 nextflow.enable.dsl = 2
 
 // Import modules
-include { MERGE_PAIREDENDSEQS } from './modules/common/local/merge/main'
-include { SOURMASH_MANYSKETCH } from './modules/read_based/local/sourmash/manysketch'
-include { SOURMASH_FASTMULTIGATHER } from './modules/read_based/local/sourmash/fastmultigather'
-include { YACHT_RUN } from './modules/read_based/local/yacht/run'
-include { PROCESS_READBASED_RESULTS } from './modules/common/local/results/process_readbased'
-include { CLEANUP } from './modules/common/local/cleanup/main'
+include { MERGE_PAIREDENDSEQS } from './modules/local/merge/main'
+include { SOURMASH_MANYSKETCH } from './modules/local/sourmash/manysketch'
+include { SOURMASH_FASTMULTIGATHER } from './modules/local/sourmash/fastmultigather'
+include { YACHT_RUN } from './modules/local/yacht/run'
+include { PROCESS_READBASED_RESULTS } from './modules/local/results/process_readbased'
+include { CLEANUP } from './modules/local/cleanup/main'
 
 // Function to create input channel based on CSV
 def create_input_channel_from_csv(csv_file) {
