@@ -4,7 +4,7 @@ process SOURMASH_FASTMULTIGATHER {
 
     conda "${projectDir}/env/read_based.yaml"
 
-    publishDir "${params.outdir}/sourmash/fastmultigather",
+    publishDir "${params.fastmultigather_dir}",
         mode: params.publish_dir_mode,
         saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
 
@@ -13,7 +13,7 @@ process SOURMASH_FASTMULTIGATHER {
     path sourmash_database
 
     output:
-    tuple val(meta), path("text_files/*_sourmash_gather.csv"), emit: gather_csv
+    tuple val(meta), path("fastmultigather/*_sourmash_gather.csv"), emit: gather_csv
     path "versions.yml", emit: versions
 
     script:
@@ -26,10 +26,10 @@ process SOURMASH_FASTMULTIGATHER {
         -k ${params.ksize} \\
         -o ${prefix}_sourmash_gather_withrocksdb.csv
 
-    mkdir -p text_files
-    mv ${prefix}_sourmash_gather_withrocksdb.csv text_files/${prefix}_sourmash_gather.csv
+    mkdir -p fastmultigather
+    mv ${prefix}_sourmash_gather_withrocksdb.csv fastmultigather/${prefix}_sourmash_gather.csv
 
-    cd text_files
+    cd fastmultigather
     sed -i 's/match_filename/filename/g' ${prefix}_sourmash_gather.csv
     sed -i 's/match_name/name/g' ${prefix}_sourmash_gather.csv
     sed -i 's/match_md5/md5/g' ${prefix}_sourmash_gather.csv
@@ -45,8 +45,8 @@ process SOURMASH_FASTMULTIGATHER {
     stub:
     def prefix = task.ext.prefix ?: meta.id ?: "fastmultigather_results"
     """
-    mkdir -p text_files
-    touch text_files/${prefix}_sourmash_gather.csv
+    mkdir -p fastmultigather
+    touch fastmultigather/${prefix}_sourmash_gather.csv
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         sourmash: "stub_version"
