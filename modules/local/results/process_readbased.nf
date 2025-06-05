@@ -4,7 +4,7 @@ process PROCESS_READBASED_RESULTS {
 
     conda "${projectDir}/env/read_based.yaml"
 
-    publishDir "${params.outdir}/processed_results",
+    publishDir "${params.processed_results_dir}",
         mode: params.publish_dir_mode,
         saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
 

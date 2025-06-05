@@ -4,9 +4,7 @@ process SOURMASH_MANYSKETCH {
 
     conda "${projectDir}/env/read_based.yaml"
 
-    publishDir params.sketch_dir,
-        mode: params.publish_dir_mode,
-        enabled: params.enable_copysketch
+    publishDir "${params.sketches_dir}", mode: params.publish_dir_mode, enabled: params.enable_copysketch
 
     input:
     path manysketch_csv

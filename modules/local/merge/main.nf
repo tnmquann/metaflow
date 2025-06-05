@@ -5,23 +5,20 @@ process MERGE_PAIREDENDSEQS {
 
     conda "${projectDir}/env/read_based.yaml"
 
-    publishDir "${params.merged_seq_dir}",
-        mode: params.publish_dir_mode,
-        enabled: params.enable_copymergedseqs,
-        saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
+    publishDir "${params.merged_seq_dir}", mode: params.publish_dir_mode, enabled: params.enable_copymergedseqs, saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
 
     input:
     tuple val(meta), path(reads)
 
     output:
-    tuple val(meta), path("merged_seq/${meta.id}.fastq.gz"), emit: merged_seqs
+    tuple val(meta), path("${meta.id}/${meta.id}.fastq.gz"), emit: merged_seqs
     path "versions.yml", emit: versions
 
     script:
     def prefix = meta.id
     """
-    mkdir -p merged_seq
-    cat ${reads} > merged_seq/${prefix}.fastq.gz
+    mkdir -p ${meta.id}
+    cat ${reads} > ${meta.id}/${prefix}.fastq.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -32,8 +29,8 @@ process MERGE_PAIREDENDSEQS {
     stub:
     def prefix = meta.id
     """
-    mkdir -p merged_seq
-    touch merged_seq/${prefix}.fastq.gz
+    mkdir -p ${meta.id}
+    touch ${meta.id}/${prefix}.fastq.gz
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

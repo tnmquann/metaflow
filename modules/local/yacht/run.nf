@@ -4,7 +4,7 @@ process YACHT_RUN {
 
     conda "${projectDir}/env/read_based.yaml"
 
-    publishDir "${params.intermediate_dir}/yacht",
+    publishDir "${params.yacht_results_dir}",
         mode: params.publish_dir_mode,
         enabled: params.enable_copyintermediate,
         saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
