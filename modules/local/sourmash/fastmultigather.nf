@@ -18,13 +18,15 @@ process SOURMASH_FASTMULTIGATHER {
 
     script:
     def prefix = task.ext.prefix ?: meta.id ?: "fastmultigather_results"
+    def args = task.ext.args ?: '' // Added for custom arguments
     """
     sourmash scripts fastmultigather \\
         ${manysketch_zip} \\
         ${sourmash_database} \\
         -c ${task.cpus} \\
         -k ${params.ksize} \\
-        -o ${prefix}_sourmash_gather_withrocksdb.csv
+        -o ${prefix}_sourmash_gather_withrocksdb.csv \\
+        $args
 
     mkdir -p fastmultigather
     mv ${prefix}_sourmash_gather_withrocksdb.csv fastmultigather/${prefix}_sourmash_gather.csv

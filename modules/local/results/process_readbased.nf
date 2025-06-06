@@ -18,6 +18,10 @@ process PROCESS_READBASED_RESULTS {
 
     script:
     def prefix = task.ext.prefix ?: meta.id ?: 'results'
+    def py_args_script1 = task.ext.py_args_script1 ?: ''
+    def py_args_script2 = task.ext.py_args_script2 ?: ''
+    def py_args_script3 = task.ext.py_args_script3 ?: ''
+    def py_args_script4 = task.ext.py_args_script4 ?: ''
     """
     mkdir -p final_results
     mkdir -p temp_text_files
@@ -28,18 +32,22 @@ process PROCESS_READBASED_RESULTS {
 
     python ${projectDir}/bin/py_scripts/1_process_sourmash.py \\
         -i temp_text_files/sourmash_gather_withrocksdb.csv \\
-        -o temp_text_files/sourmash_mergedresults.csv
+        -o temp_text_files/sourmash_mergedresults.csv \\
+        $py_args_script1
 
     python ${projectDir}/bin/py_scripts/2_process_yacht.py \\
-        -d temp_yacht_results
+        -d temp_yacht_results \\
+        $py_args_script2
 
     python ${projectDir}/bin/py_scripts/3_concat_yacht.py \\
-        -d temp_yacht_results
+        -d temp_yacht_results \\
+        $py_args_script3
 
     python ${projectDir}/bin/py_scripts/4_merged_yacht_sourmash.py \\
         -d1 final_results \\
         -d2 temp_text_files \\
-        -d3 temp_yacht_results
+        -d3 temp_yacht_results \\
+        $py_args_script4
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
