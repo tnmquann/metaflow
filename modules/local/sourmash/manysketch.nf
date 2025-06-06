@@ -16,12 +16,15 @@ process SOURMASH_MANYSKETCH {
     path "versions.yml"                             , emit: versions
 
     script:
+    def args_sourmash = task.ext.args_sourmash ?: '' // Args for sourmash manysketch
+    def args_python = task.ext.args_python ?: ''     // Args for the python script
     """
     # Run sourmash manysketch using the provided CSV file
     sourmash scripts manysketch ${manysketch_csv} \\
         -o batch.manysketch.zip \\
         -c ${task.cpus} \\
-        -p dna,k=31,k=51,scaled=1000,abund
+        -p dna,k=31,k=51,scaled=1000,abund \\
+        $args_sourmash
 
     # Create directories
     mkdir -p manysketch_output/zip_files
@@ -30,7 +33,7 @@ process SOURMASH_MANYSKETCH {
     unzip -o batch.manysketch.zip -d manysketch_output/
 
     # Run the Python script on the unzipped output
-    python ${projectDir}/bin/py_scripts/0_zip_with_ksize_ok.py -d manysketch_output
+    python ${projectDir}/bin/py_scripts/0_zip_with_ksize_ok.py -d manysketch_output $args_python
 
     # Move any generated zip files to zip_files directory
     mv manysketch_output/*_${params.ksize}.sig.zip manysketch_output/zip_files/ 2>/dev/null || true

@@ -19,6 +19,7 @@ process YACHT_RUN {
 
     script:
     def prefix = task.ext.prefix ?: meta.id ?: 'yacht'
+    def args = task.ext.args ?: '' // Added for custom arguments to yacht run
     """
     mkdir -p yacht_results
     
@@ -35,7 +36,8 @@ process YACHT_RUN {
             --num_threads ${task.cpus} \\
             --significance 0.99 \\
             --min_coverage_list 1 0.5 0.1 0.05 0.01 \\
-            --out yacht_results/\${sample_name}_yacht.xlsx
+            --out yacht_results/\${sample_name}_yacht.xlsx \\
+            $args
     done
     
     # Cleanup
@@ -49,6 +51,7 @@ process YACHT_RUN {
     """
 
     stub:
+    def prefix = task.ext.prefix ?: meta.id ?: 'yacht'
     """
     mkdir -p yacht_results
     touch yacht_results/${prefix}_yacht.xlsx

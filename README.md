@@ -102,6 +102,18 @@ sample3,1,1,data/sample3_1.fastq.gz,data/sample3_2.fastq.gz,
 | --------- | ----------------------- | ------------- |
 | `email`   | Email for notifications | `null`        |
 
+
+### Customizing Tool Arguments
+For more fine-grained control over the arguments passed to specific tools within the pipeline, you can define them in a Nextflow configuration file. This is typically done using the `process` scope, the `withName` selector to target a specific process, and the `ext` map to pass custom arguments or prefixes.
+
+For example, you can use `conf/parameters.config` and specify your custom configuration:
+```bash
+nextflow run main.nf \
+    --input samples.csv \
+    --input_format csv \
+    -profile conda \
+    -c /path/to/your/custom_params.config
+```
 ## Pipeline Profiles
 
 - `conda`: Uses conda/mamba
