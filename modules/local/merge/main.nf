@@ -1,14 +1,17 @@
 process MERGE_PAIREDENDSEQS {
     tag { meta.id }
     label 'process_low'
-    maxForks 2  // Allow 2 parallel executions
+    maxForks 2
 
     conda "${projectDir}/env/read_based.yaml"
 
-    publishDir "${params.merged_seq_dir}", mode: params.publish_dir_mode, enabled: params.enable_copymergedseqs, saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
+    publishDir "${params.merged_seq_dir}",
+        mode: params.publish_dir_mode,
+        enabled: params.enable_copymergedseqs,
+        saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
 
     input:
-    tuple val(meta), path(reads)
+    tuple val(meta), path(reads)  // reads is now a list of two files
 
     output:
     tuple val(meta), path("${meta.id}/${meta.id}.fastq.gz"), emit: merged_seqs
@@ -18,7 +21,7 @@ process MERGE_PAIREDENDSEQS {
     def prefix = meta.id
     """
     mkdir -p ${meta.id}
-    cat ${reads} > ${meta.id}/${prefix}.fastq.gz
+    cat ${reads.join(' ')} > ${meta.id}/${prefix}.fastq.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

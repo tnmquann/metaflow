@@ -1,8 +1,7 @@
 #!/usr/bin/env nextflow
-
 nextflow.enable.dsl = 2
 
-// Import modules
+// Module imports
 include { MERGE_PAIREDENDSEQS } from './modules/local/merge/main'
 include { SOURMASH_MANYSKETCH } from './modules/local/sourmash/manysketch'
 include { SOURMASH_FASTMULTIGATHER } from './modules/local/sourmash/fastmultigather'
@@ -10,164 +9,119 @@ include { YACHT_RUN } from './modules/local/yacht/run'
 include { PROCESS_READBASED_RESULTS } from './modules/local/results/process_readbased'
 include { CLEANUP } from './modules/local/cleanup/main'
 
-// Function to create input channel based on CSV
-def create_input_channel_from_csv(csv_file) {
-    Channel
-        .fromPath(csv_file)
-        .splitCsv(header:true)
-        .map { row -> 
-            def meta = [
-                id: row.sample_id,
-                run_id: row.run_id,
-                group: row.group
-            ]
+// Subworkflow imports
+include { PREPROCESS } from './subworkflows/local/preprocess'
+include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_plugin/main'
+
+include { validateParameters; paramsSummaryLog } from 'plugin/nf-schema'
+
+// Function to create input channel from CSV
+def createInputChannel(input_path) {
+    return Channel
+        .fromPath(input_path)
+        .splitCsv(header:true, sep:',', strip:true)
+        .map { row ->
+            def meta = [:]
+            meta.id = row.sample_id ?: "sample_${System.currentTimeMillis()}"
+            meta.run_id = row.run_id ?: 'default_run'
+            meta.group = row.group ?: 'default_group'
+            meta.single_end = false // Assuming paired-end as per your setup
+
+            // Validate read files exist
             def reads = []
-            if (row.short_reads_1 && row.short_reads_2) {
-                reads = [
-                    file(row.short_reads_1),
-                    file(row.short_reads_2)
-                ]
-            }
-            if (row.long_reads) {
-                reads << file(row.long_reads)
+            if (row.short_reads_1?.trim() && row.short_reads_2?.trim()) {
+                def read1_path = row.short_reads_1.trim()
+                def read2_path = row.short_reads_2.trim()
+                if (!file(read1_path).exists()) {
+                    exit 1, "Read file 1 does not exist for sample ${meta.id}: ${read1_path}"
+                }
+                if (!file(read2_path).exists()) {
+                    exit 1, "Read file 2 does not exist for sample ${meta.id}: ${read2_path}"
+                }
+                reads = [file(read1_path), file(read2_path)]
+            } else {
+                exit 1, "Missing or invalid paired-end read files for sample: ${meta.id}. Both short_reads_1 and short_reads_2 must be provided."
             }
             return tuple(meta, reads)
         }
 }
 
-// Function to create input channel from directory
-def create_input_channel_from_dir(dir_path) {
-    Channel
-        .fromFilePairs("${dir_path}/*_{1,2}.{fastq,fq}.gz")
-        .map { id, files -> 
-            def meta = [
-                id: id,
-                run_id: '0',
-                group: '0'
-            ]
-            return tuple(meta, files)
-        }
-}
-
 workflow {
-    main:
-        // Create input channel based on input format
-        ch_input = params.input_format == 'csv' && params.input ? 
-            create_input_channel_from_csv(params.input) :
-            create_input_channel_from_dir(params.trimmed_fastq)
+    // Validate parameters and log summary
+    validateParameters()
+    log.info paramsSummaryLog(workflow)
 
-        // Run MERGE_PAIREDENDSEQS on each sample
-        MERGE_PAIREDENDSEQS(ch_input)
+    // Create input channel
+    input_ch = createInputChannel(params.input)
 
-        // Group merged files by batch for SOURMASH_MANYSKETCH
-        ch_merged_batch = MERGE_PAIREDENDSEQS.out.merged_seqs
-            .map { meta, file -> file }
-            .collect()
-            .map { files ->
-                def content = ["name,genome_filename,protein_filename"]
-                files.each { file ->
-                    def name = file.name.replace('.fastq.gz', '')
-                    content << "${name},${file},"
-                }
-                def csv = file("${workflow.workDir}/manysketch_input.csv")
-                csv.text = content.join('\n')
-                return csv
-            }
+    // Run preprocessing subworkflow including QC, trimming, and host removal
+    PREPROCESS(input_ch)
 
-        // Continue with existing workflow
-        SOURMASH_MANYSKETCH(ch_merged_batch)
+    // Merge paired-end sequences for downstream analysis
+    MERGE_PAIREDENDSEQS(PREPROCESS.out.cleaned_reads)
 
-        ch_sourmash_sketches = SOURMASH_MANYSKETCH.out.sketch_zip_file
-            .map { sketch_zip -> 
-                [ [id: 'batch'], sketch_zip ] 
-            }
-
-        ch_sourmash_signatures = SOURMASH_MANYSKETCH.out.zip_files_dir
-            .map { zip_dir -> 
-                [ [id: 'batch'], zip_dir ] 
-            }
-
-        SOURMASH_FASTMULTIGATHER(
-            ch_sourmash_sketches,
-            file(params.sourmash_database)
-        )
-
-        YACHT_RUN(
-            ch_sourmash_signatures,
-            file(params.yacht_database)
-        )
-
-        PROCESS_READBASED_RESULTS(
-            SOURMASH_FASTMULTIGATHER.out.gather_csv,
-            YACHT_RUN.out.yacht_xlsx
-        )
-
-        if (params.cleanup) {
-            CLEANUP(PROCESS_READBASED_RESULTS.out.final_results.collect())
+    // Prepare input for SOURMASH_MANYSKETCH
+    // It expects a CSV file: "name,genome_filename,protein_filename"
+    // We only have genome_filename (the merged fastq)
+    ch_manysketch_csv_input = MERGE_PAIREDENDSEQS.out.merged_seqs
+        .collectFile(
+            name: "${params.outdir}/Sourmash - YACHT/manysketch_manifest.csv",
+            newLine: true,
+            seed: "name,genome_filename,protein_filename",  // Header line
+            storeDir: "${params.outdir}/Sourmash - YACHT"
+        ) { meta, merged_file ->
+            // Each line will be: sampleId,merged_fastq_path,
+            "${meta.id},${merged_file},"
         }
-}
-
-// Update subworkflow names
-workflow PROFILING_SOURMASHONLY {
-    take:
-        ch_input_fastq    // More descriptive parameter name
-
-    main:
-        MERGE_PAIREDENDSEQS(ch_input_fastq)
-
-        ch_sourmash_manifest = MERGE_PAIREDENDSEQS.out.merged_seqs
-            .map { createSourmashManifest(it) }
-
-        SOURMASH_MANYSKETCH(ch_sourmash_manifest)
-
-        ch_sourmash_sketches = SOURMASH_MANYSKETCH.out.sketch_zip_file
-            .map { sketch_zip -> 
-                [ [id: 'batch'], sketch_zip ] 
-            }
-
-        SOURMASH_FASTMULTIGATHER(
-            ch_sourmash_sketches,
-            file(params.sourmash_database)
-        )
-
-    emit:
-        results = SOURMASH_FASTMULTIGATHER.out.gather_csv
-        sketches = SOURMASH_MANYSKETCH.out.sketch_zip_file
-        signatures = SOURMASH_MANYSKETCH.out.zip_files_dir
-}
-
-workflow PROFILING_YACHTONLY {
-    take:
-        ch_input_fastq    // More descriptive parameter name
-
-    main:
-        sourmash_results = PROFILING_SOURMASHONLY(ch_input_fastq)
-
-        ch_sourmash_signatures = sourmash_results.signatures
-            .map { sig_dir -> 
-                [ [id: 'batch'], sig_dir ] 
-            }
-
-        YACHT_RUN(
-            ch_sourmash_signatures,
-            file(params.yacht_database)
-        )
-
-    emit:
-        results = YACHT_RUN.out.yacht_xlsx
-}
-
-// Helper function for creating Sourmash manifest
-def createSourmashManifest(merged_seq_dir) {
-    def content = []
-    content << "name,genome_filename,protein_filename"
-    file(merged_seq_dir).listFiles().each { file ->
-        if (file.name.endsWith('.fastq.gz')) {
-            def name = file.name.replace('.fastq.gz', '')
-            content << "${name},${file.toString()},"
+        .map { csv_file -> 
+            // Return the CSV file for SOURMASH_MANYSKETCH
+            csv_file
         }
+
+
+    // Run taxonomic profiling with Sourmash
+    SOURMASH_MANYSKETCH(
+        ch_manysketch_csv_input
+    )
+
+    // SOURMASH_FASTMULTIGATHER expects: tuple val(meta), path(manysketch_zip)
+    // SOURMASH_MANYSKETCH emits: path("batch.manysketch.zip")
+    // We need to re-introduce a meta map if subsequent processes need it.
+    // For now, let's assume a single batch operation for fastmultigather.
+    // If per-sample fastmultigather is needed, SOURMASH_MANYSKETCH would need to emit per-sample zips.
+    ch_sketch_zip_with_meta = SOURMASH_MANYSKETCH.out.sketch_zip_file.map{ file -> [[id:'batch'], file] }
+
+    SOURMASH_FASTMULTIGATHER(
+        ch_sketch_zip_with_meta,
+        file(params.sourmash_database, checkIfExists: true)
+    )
+
+    // YACHT_RUN expects: tuple val(meta), path(zip_files_dir)
+    // SOURMASH_MANYSKETCH emits: path("manysketch_output/zip_files"), which is a directory
+    ch_zip_files_dir_with_meta = SOURMASH_MANYSKETCH.out.zip_files_dir.map{ dir -> [[id:'batch'], dir] }
+
+    YACHT_RUN(
+        ch_zip_files_dir_with_meta,
+        file(params.yacht_database, checkIfExists: true)
+    )
+
+    // Process and combine results
+    // PROCESS_READBASED_RESULTS expects:
+    // tuple val(meta), path(gather_csv)
+    // tuple val(meta), path(yacht_xlsx)
+    // SOURMASH_FASTMULTIGATHER emits: tuple val(meta), path("fastmultigather/*_sourmash_gather.csv")
+    // YACHT_RUN emits: tuple val(meta), path("yacht_results/*.xlsx")
+    // These should align if the meta map has 'id':'batch'
+
+    PROCESS_READBASED_RESULTS(
+        SOURMASH_FASTMULTIGATHER.out.gather_csv,
+        YACHT_RUN.out.yacht_xlsx
+    )
+
+    // Optional cleanup
+    if (params.cleanup) {
+        CLEANUP(
+            PROCESS_READBASED_RESULTS.out.final_results.collect() // collect might be needed if it's a channel
+        )
     }
-    def csv = file("${workflow.workDir}/manysketch_input_subworkflow.csv")
-    csv.text = content.join('\n')
-    return csv
 }
