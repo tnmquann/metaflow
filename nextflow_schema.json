@@ -1,0 +1,93 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/tnmquann/profiler_sourmash/main/nextflow_schema.json",
+    "title": "Taxonomic Profiling Pipeline with Hostile and Sourmash",
+    "description": "Pipeline for taxonomic profiling using Sourmash after cleaning reads with Hostile",
+    "type": "object",
+    "$defs": {
+        "input_output_options": {
+            "title": "Input/output options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define where the pipeline should find input data and save output data.",
+            "required": ["input", "outdir"],
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to input CSV file containing sample information"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "The output directory where results will be saved"
+                },
+                "input_format": {
+                    "type": "string",
+                    "default": "csv",
+                    "description": "Format of input files",
+                    "enum": ["csv", "directory"]
+                },
+                "publish_dir_mode": {
+                    "type": "string",
+                    "default": "copy",
+                    "description": "Method used to save pipeline results",
+                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
+                }
+            }
+        },
+        "database_options": {
+            "title": "Database options",
+            "type": "object",
+            "description": "Reference database options required for taxonomic profiling",
+            "properties": {
+                "sourmash_database": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "Path to Sourmash database (.rocksdb)",
+                    "help_text": "Path to a Sourmash database in RocksDB format for taxonomic profiling"
+                },
+                "yacht_database": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to YACHT database configuration file",
+                    "help_text": "Path to a YACHT database configuration JSON file"
+                }
+            }
+        },
+        "host_removal_options": {
+            "title": "Host removal options",
+            "type": "object",
+            "description": "Options for host sequence removal with Hostile",
+            "properties": {
+                "hostile_reference": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory containing Hostile reference files"
+                },
+                "hostile_index": {
+                    "type": "string",
+                    "description": "Name of the Hostile index to use",
+                    "default": "human-t2t-hla"
+                },
+                "hostile_ref_name": {
+                    "type": "string",
+                    "description": "Reference name for Hostile (defaults to hostile_index if not set)",
+                    "default": "human-t2t-hla"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/database_options"
+        },
+        {
+            "$ref": "#/$defs/host_removal_options"
+        }
+    ]
+}
