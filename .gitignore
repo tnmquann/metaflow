@@ -4,7 +4,7 @@ work/
 
 # Hidden files (starting with dot)
 .nextflow*
-.vscode/
+.vscode*
 
 # But keep .gitignore
 !.gitignore
