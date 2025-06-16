@@ -1,0 +1,77 @@
+nextflow_process {
+    name "Test YACHT_RUN process"
+    script "./main.nf"
+    process "YACHT_RUN"
+
+    test("Should run YACHT with test data") {
+        when {
+            params {
+                ksize = 31
+                yacht_results_dir = "results"
+                publish_dir_mode = "copy"
+                enable_copyintermediate = true
+            }
+            
+            process {
+                """
+                input[0] = tuple(
+                    [ id:'test_sample' ],
+                    file("${projectDir}/test_data/signatures/")
+                )
+                input[1] = file("${projectDir}/test_data/yacht_database.json")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+            
+            with(process.out.yacht_xlsx) {
+                assert size() == 1
+                assert get(0)[0].id == "test_sample"
+                assert get(0)[1].toString().endsWith(".xlsx")
+            }
+            
+            with(process.out.versions) {
+                assert path(get(0)).text.contains("yacht:")
+            }
+        }
+    }
+
+    test("Should run with stub") {
+        when {
+            params {
+                ksize = 31
+                yacht_results_dir = "results"
+                publish_dir_mode = "copy"
+                enable_copyintermediate = true
+            }
+            
+            process {
+                """
+                input[0] = tuple(
+                    [ id:'test_stub' ],
+                    file("${projectDir}/test_data/signatures/")
+                )
+                input[1] = file("${projectDir}/test_data/yacht_database.json")
+                """
+            }
+        }
+
+        then {
+            assertStub()
+            
+            with(process.out.yacht_xlsx) {
+                assert size() == 1
+                assert get(0)[0].id == "test_stub"
+                assert get(0)[1].toString().endsWith("_yacht.xlsx")
+            }
+            
+            with(process.out.versions) {
+                assert path(get(0)).text.contains("stub_version")
+            }
+        }
+    }
+}
+ 

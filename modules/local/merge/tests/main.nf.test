@@ -1,0 +1,58 @@
+nextflow_process {
+    name "Test MERGE_PAIREDENDSEQS"
+    script "./main.nf"
+    process "MERGE_PAIREDENDSEQS"
+
+    test("Should merge paired-end sequences") {
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [ id:'test_sample' ],
+                    [ file("test_R1.fastq.gz"), file("test_R2.fastq.gz") ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+            with(process.out.merged_seqs) {
+                assert size() == 1
+                assert get(0)[0].id == "test_sample"
+                assert get(0)[1].name == "test_sample/test_sample.fastq.gz"
+            }
+            with(process.out.versions) {
+                assert path(get(0)).readLines().any { it.contains("cat") }
+            }
+        }
+    }
+
+    test("Should run in stub mode") {
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [ id:'stub_test' ],
+                    [ file("stub_R1.fastq.gz"), file("stub_R2.fastq.gz") ]
+                )
+                """
+            }
+            options "-stub"
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+            with(process.out.merged_seqs) {
+                assert size() == 1
+                assert get(0)[0].id == "stub_test"
+                assert get(0)[1].name == "stub_test/stub_test.fastq.gz"
+            }
+            with(process.out.versions) {
+                assert path(get(0)).readLines().any { it.contains("stub_version") }
+            }
+        }
+    }
+}
