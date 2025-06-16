@@ -3,8 +3,8 @@ nextflow.enable.dsl = 2
 
 // Module imports
 include { MERGE_PAIREDENDSEQS } from './modules/local/merge/main'
-include { SOURMASH_MANYSKETCH } from './modules/local/sourmash/manysketch'
-include { SOURMASH_FASTMULTIGATHER } from './modules/local/sourmash/fastmultigather'
+include { SOURMASH_MANYSKETCH } from './modules/local/sourmash/manysketch/main'
+include { SOURMASH_FASTMULTIGATHER } from './modules/local/sourmash/fastmultigather/main'
 include { YACHT_RUN } from './modules/local/yacht/run'
 include { PROCESS_READBASED_RESULTS } from './modules/local/results/process_readbased'
 include { CLEANUP } from './modules/local/cleanup/main'
