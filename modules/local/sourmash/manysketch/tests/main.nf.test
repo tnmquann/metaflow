@@ -3,7 +3,7 @@ nextflow_process {
     script "./main.nf"
     process "SOURMASH_MANYSKETCH"
 
-    test("Should run sourmash manysketch with test data") {
+    test("Should run sourmash manysketch with default parameters") {
         when {
             params {
                 sketches_dir = "test_sketches"
@@ -13,7 +13,7 @@ nextflow_process {
             }
             process {
                 """
-                input[0] = file("test_data/test_batch.csv")
+                input[0] = file("${projectDir}/test_data/test_batch.csv")
                 """
             }
         }
@@ -21,20 +21,20 @@ nextflow_process {
         then {
             assert process.success
             assert process.trace.tasks().size() == 1
-
+            
             with(process.out.manysketch_dir) {
                 assert path(get(0)).exists()
             }
-
+            
             with(process.out.zip_files_dir) {
                 assert path(get(0)).exists()
             }
-
+            
             with(process.out.sketch_zip_file) {
                 assert path(get(0)).exists()
                 assert path(get(0)).name == "batch.manysketch.zip"
             }
-
+            
             with(process.out.versions) {
                 assert path(get(0)).exists()
                 assert path(get(0)).text.contains("sourmash")
@@ -54,7 +54,7 @@ nextflow_process {
             }
             process {
                 """
-                input[0] = file("test_data/test_batch.csv")
+                input[0] = file("${projectDir}/test_data/test_batch.csv")
                 """
             }
         }
@@ -62,20 +62,20 @@ nextflow_process {
         then {
             assert process.success
             assert process.trace.tasks().size() == 1
-
+            
             with(process.out.manysketch_dir) {
                 assert path(get(0)).exists()
             }
-
+            
             with(process.out.zip_files_dir) {
                 assert path(get(0)).exists()
             }
-
+            
             with(process.out.sketch_zip_file) {
                 assert path(get(0)).exists()
                 assert path(get(0)).name == "batch.manysketch.zip"
             }
-
+            
             with(process.out.versions) {
                 assert path(get(0)).exists()
                 assert path(get(0)).text.contains("stub_version")

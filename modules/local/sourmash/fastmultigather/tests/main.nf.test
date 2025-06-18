@@ -1,5 +1,5 @@
 nextflow_process {
-    name "Test SOURMASH_FASTMULTIGATHER process"
+    name "Test Process SOURMASH_FASTMULTIGATHER"
     script "./main.nf"
     process "SOURMASH_FASTMULTIGATHER"
 
@@ -16,7 +16,7 @@ nextflow_process {
                     [ id: 'test_sample' ],
                     file("${projectDir}/test_data/test_sketches.zip")
                 )
-                input[1] = file("${projectDir}/test_data/test_database.zip")
+                input[1] = file("${projectDir}/test_data/mockupdb_r226_k31.zip")
                 """
             }
         }
@@ -24,18 +24,18 @@ nextflow_process {
         then {
             assert process.success
             assert process.trace.tasks().size() == 1
-            
+
             with(process.out.gather_csv) {
                 assert size() == 1
                 assert get(0) instanceof Map
                 assert get(0)[0].id == "test_sample"
                 assert path(get(0)[1]).exists()
-                assert path(get(0)[1]).getName().endsWith("_sourmash_gather.csv")
+                assert path(get(0)[1]).toString().contains("_sourmash_gather.csv")
             }
 
             with(process.out.versions) {
                 assert path(get(0)).exists()
-                assert path(get(0)).readLines().contains("${process.name}:")
+                assert path(get(0)).readLines().contains("\"${process.name}\":")
                 assert path(get(0)).readLines().any { it.contains("sourmash:") }
                 assert path(get(0)).readLines().any { it.contains("sed:") }
             }
@@ -55,7 +55,7 @@ nextflow_process {
                     [ id: 'test_stub' ],
                     file("${projectDir}/test_data/test_sketches.zip")
                 )
-                input[1] = file("${projectDir}/test_data/test_database.zip")
+                input[1] = file("${projectDir}/test_data/mockupdb_r226_k31.zip")
                 """
             }
         }
@@ -74,7 +74,7 @@ nextflow_process {
 
             with(process.out.versions) {
                 assert path(get(0)).exists()
-                assert path(get(0)).readLines().contains("${process.name}:")
+                assert path(get(0)).readLines().contains("\"${process.name}\":")
                 assert path(get(0)).readLines().any { it.contains("stub_version") }
             }
         }
