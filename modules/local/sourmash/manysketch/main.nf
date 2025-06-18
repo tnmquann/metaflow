@@ -2,7 +2,7 @@ process SOURMASH_MANYSKETCH {
     tag "Running sourmash manysketch on batch"
     label 'process_medium'
 
-    conda "${projectDir}/env/read_based.yaml"
+    conda "${moduleDir}/environment.yml"
 
     publishDir "${params.sketches_dir}", mode: params.publish_dir_mode, enabled: params.enable_copysketch
 
@@ -33,7 +33,7 @@ process SOURMASH_MANYSKETCH {
     unzip -o batch.manysketch.zip -d manysketch_output/
 
     # Run the Python script on the unzipped output
-    python ${projectDir}/bin/py_scripts/0_zip_with_ksize_ok.py -d manysketch_output $args_python
+    python ${projectDir}/bin/py_scripts/read_based/sourmash_extract_zip_with_ksize.py -d manysketch_output $args_python
 
     # Move any generated zip files to zip_files directory
     mv manysketch_output/*_${params.ksize}.sig.zip manysketch_output/zip_files/ 2>/dev/null || true

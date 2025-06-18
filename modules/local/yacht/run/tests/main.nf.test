@@ -7,7 +7,7 @@ nextflow_process {
         when {
             params {
                 ksize = 31
-                yacht_results_dir = "results"
+                yacht_results_dir = "yacht_results"
                 publish_dir_mode = "copy"
                 enable_copyintermediate = true
             }
@@ -15,10 +15,10 @@ nextflow_process {
             process {
                 """
                 input[0] = tuple(
-                    [ id:'test_sample' ],
+                    [id: 'test_sample'],
                     file("${projectDir}/test_data/signatures/")
                 )
-                input[1] = file("${projectDir}/test_data/yacht_database.json")
+                input[1] = file("${projectDir}/test_data/mockupdb_r226_k31_thresh_0.995/mockupdb_r226_k31_thresh_0.995_config.json")
                 """
             }
         }
@@ -29,12 +29,12 @@ nextflow_process {
             
             with(process.out.yacht_xlsx) {
                 assert size() == 1
-                assert get(0)[0].id == "test_sample"
-                assert get(0)[1].toString().endsWith(".xlsx")
+                assert get(0)[0].id == 'test_sample'
+                assert path(get(0)[1]).toString().endsWith('.xlsx')
             }
             
             with(process.out.versions) {
-                assert path(get(0)).text.contains("yacht:")
+                assert path(get(0)).readLines().any { it.contains("yacht:") }
             }
         }
     }
@@ -43,7 +43,7 @@ nextflow_process {
         when {
             params {
                 ksize = 31
-                yacht_results_dir = "results"
+                yacht_results_dir = "yacht_results"
                 publish_dir_mode = "copy"
                 enable_copyintermediate = true
             }
@@ -51,27 +51,27 @@ nextflow_process {
             process {
                 """
                 input[0] = tuple(
-                    [ id:'test_stub' ],
+                    [id: 'test_stub'],
                     file("${projectDir}/test_data/signatures/")
                 )
-                input[1] = file("${projectDir}/test_data/yacht_database.json")
+                input[1] = file("${projectDir}/test_data/mockupdb_r226_k31_thresh_0.995/mockupdb_r226_k31_thresh_0.995_config.json")
                 """
             }
         }
 
         then {
-            assertStub()
+            options.stub = true
+            assert process.success
             
             with(process.out.yacht_xlsx) {
                 assert size() == 1
-                assert get(0)[0].id == "test_stub"
-                assert get(0)[1].toString().endsWith("_yacht.xlsx")
+                assert get(0)[0].id == 'test_stub'
+                assert path(get(0)[1]).toString().contains('test_stub_yacht.xlsx')
             }
             
             with(process.out.versions) {
-                assert path(get(0)).text.contains("stub_version")
+                assert path(get(0)).readLines().contains('        yacht: "stub_version"')
             }
         }
     }
 }
- 

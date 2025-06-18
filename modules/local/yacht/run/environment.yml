@@ -1,0 +1,8 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - bioconda::sourmash=4.9.2
+  - bioconda::yacht=1.3.0
+  - conda-forge::sourmash_plugin_branchwater=0.9.13

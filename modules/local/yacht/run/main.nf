@@ -2,7 +2,7 @@ process YACHT_RUN {
     tag "Running YACHT on batch samples"
     label 'process_high'
 
-    conda "${projectDir}/env/read_based.yaml"
+    conda "${moduleDir}/environment.yml"
 
     publishDir "${params.yacht_results_dir}",
         mode: params.publish_dir_mode,

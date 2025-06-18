@@ -1,0 +1,6 @@
+name,genome_filename,protein_filename
+GCA_021783475.1_genomic,${projectDir}/test_data/GCA_021783475.1_genomic.fna.gz,
+GCF_000212395.1_genomic,${projectDir}/test_data/GCF_000212395.1_genomic.fna.gz,
+GCF_003057965.1_genomic,${projectDir}/test_data/GCF_003057965.1_genomic.fna.gz,
+GCF_003697165.2_genomic,${projectDir}/test_data/GCF_003697165.2_genomic.fna.gz,
+GCF_039822205.1_genomic,${projectDir}/test_data/GCF_039822205.1_genomic.fna.gz,

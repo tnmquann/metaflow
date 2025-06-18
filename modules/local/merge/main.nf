@@ -3,7 +3,7 @@ process MERGE_PAIREDENDSEQS {
     label 'process_low'
     maxForks 2
 
-    conda "${projectDir}/env/read_based.yaml"
+    conda "conda-forge::pigz=2.3.4"
 
     publishDir "${params.merged_seq_dir}",
         mode: params.publish_dir_mode,

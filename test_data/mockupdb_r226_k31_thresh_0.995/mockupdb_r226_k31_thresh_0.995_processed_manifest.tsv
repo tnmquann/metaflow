@@ -1,0 +1,6 @@
+organism_name	md5sum	num_unique_kmers_in_genome_sketch	num_total_kmers_in_genome_sketch	genome_scale_factor
+GCF_039822205.1_genomic.fna.gz	3261a4b334f2f01adf80ee38ac4b2cf9	1944	1944	1000
+GCA_021783475.1_genomic.fna.gz	412e3df9d97cee61d4711e3324fd1357	1906	1906	1000
+GCF_003697165.2_genomic.fna.gz	60bfe150353edefcbd7db7314951359d	4911	4911	1000
+GCF_003057965.1_genomic.fna.gz	41b9e1d0458ee57c91d629a060566614	1743	1743	1000
+GCF_000212395.1_genomic.fna.gz	c03697bb58a19f2d1631e74b9a71ac70	1872	1872	1000

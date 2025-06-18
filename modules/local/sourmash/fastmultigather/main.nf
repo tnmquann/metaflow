@@ -2,7 +2,7 @@ process SOURMASH_FASTMULTIGATHER {
     tag "Running sourmash fastmultigather on ${manysketch_zip}"
     label 'process_high'
 
-    conda "${projectDir}/env/read_based.yaml"
+    conda "${moduleDir}/environment.yml"
 
     publishDir "${params.fastmultigather_dir}",
         mode: params.publish_dir_mode,
