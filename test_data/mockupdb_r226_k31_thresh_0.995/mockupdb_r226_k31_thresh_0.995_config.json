@@ -1,6 +1,6 @@
 {
-    "manifest_file_path": "${projectDir}/mockupdb_r226_k31_thresh_0.995/mockupdb_r226_k31_thresh_0.995_processed_manifest.tsv",
-    "intermediate_files_dir": "${projectDir}/mockupdb_r226_k31_thresh_0.995/mockupdb_r226_k31_thresh_0.995_intermediate_files",
+    "manifest_file_path": "${projectDir}/test_data/mockupdb_r226_k31_thresh_0.995/mockupdb_r226_k31_thresh_0.995_processed_manifest.tsv",
+    "intermediate_files_dir": "${projectDir}/test_data/mockupdb_r226_k31_thresh_0.995/mockupdb_r226_k31_thresh_0.995_intermediate_files",
     "scale": 1000,
     "ksize": 31,
     "ani_thresh": 0.995
