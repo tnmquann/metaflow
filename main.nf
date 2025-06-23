@@ -6,7 +6,7 @@ include { MERGE_PAIREDENDSEQS } from './modules/local/merge/main'
 include { SOURMASH_MANYSKETCH } from './modules/local/sourmash/manysketch/main'
 include { SOURMASH_FASTMULTIGATHER } from './modules/local/sourmash/fastmultigather/main'
 include { YACHT_RUN } from './modules/local/yacht/run/main'
-include { PROCESS_READBASED_RESULTS } from './modules/local/results/readbased/process_readbased'
+include { PROCESS_READBASED_RESULTS } from './modules/local/finalize/readbased/process_readbased'
 include { CLEANUP } from './modules/local/cleanup/main'
 
 // Subworkflow imports
@@ -15,8 +15,8 @@ include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_pl
 
 include { validateParameters; paramsSummaryLog } from 'plugin/nf-schema'
 
-// Function to create input channel from CSV
-def createInputChannel(input_path) {
+// Function to create input channel from a CSV file
+def createCsvInputChannel(input_path) {
     return Channel
         .fromPath(input_path)
         .splitCsv(header:true, sep:',', strip:true)
@@ -51,8 +51,24 @@ workflow {
     validateParameters()
     log.info paramsSummaryLog(workflow)
 
-    // Create input channel
-    input_ch = createInputChannel(params.input)
+    // Create input channel based on the specified format
+    if (params.input_format == 'csv') {
+        input_ch = createCsvInputChannel(params.input)
+    } else if (params.input_format == 'directory') {
+        // Use fromFilePairs for directory input to find paired-end FASTQ files
+        input_ch = Channel.fromFilePairs("${params.input}/*_{1,2}*.fastq.gz")
+            .map { sample_id, reads ->
+                def meta = [:]
+                meta.id = sample_id
+                meta.single_end = false
+                // Note: run_id and group are not available from filenames, using defaults
+                meta.run_id = 'default_run'
+                meta.group = 'default_group'
+                return tuple(meta, reads)
+            }
+    } else {
+        exit 1, "Invalid input_format: '${params.input_format}'. Must be 'csv' or 'directory'."
+    }
 
     // Run preprocessing subworkflow including QC, trimming, and host removal
     PREPROCESS(input_ch)
@@ -61,8 +77,6 @@ workflow {
     MERGE_PAIREDENDSEQS(PREPROCESS.out.cleaned_reads)
 
     // Prepare input for SOURMASH_MANYSKETCH
-    // It expects a CSV file: "name,genome_filename,protein_filename"
-    // We only have genome_filename (the merged fastq)
     ch_manysketch_csv_input = MERGE_PAIREDENDSEQS.out.merged_seqs
         .collectFile(
             name: "${params.outdir}/Sourmash - YACHT/manysketch_manifest.csv",

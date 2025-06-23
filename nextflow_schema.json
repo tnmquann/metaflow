@@ -14,9 +14,8 @@
             "properties": {
                 "input": {
                     "type": "string",
-                    "format": "file-path",
                     "exists": true,
-                    "description": "Path to input CSV file containing sample information"
+                    "description": "Path to input CSV file containing sample information or directory containing FASTQ files"
                 },
                 "outdir": {
                     "type": "string",
@@ -44,7 +43,7 @@
             "properties": {
                 "sourmash_database": {
                     "type": "string",
-                    "format": "path",
+                    "format": "directory-path",
                     "description": "Path to Sourmash database (.rocksdb)",
                     "help_text": "Path to a Sourmash database in RocksDB format for taxonomic profiling"
                 },
