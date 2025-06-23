@@ -17,7 +17,7 @@ output_file_name = args.output
 # Ensure the output directory exists
 os.makedirs(output_dir, exist_ok=True)
 
-# Function to calculate relative abundance
+# Function to calculate relative abundance (ref: https://github.com/sourmash-bio/sourmash/issues/461)
 def calculate_relative_abundance(row):
     relative_abundance = ((row['unique_intersect_bp']/row['scaled']) * row['median_abund'])/row['total_weighted_hashes']
     return relative_abundance
