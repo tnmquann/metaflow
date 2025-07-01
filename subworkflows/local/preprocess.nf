@@ -67,10 +67,11 @@ workflow PREPROCESS {
         versions_coll = versions_coll.mix(HOSTILE_FETCH.out.versions)
     }
 
+    // Before HOSTILE_CLEAN process call, prepare the reference channel properly
+    def ref_name = params.hostile_ref_name ?: params.hostile_index
     HOSTILE_CLEAN (
         FASTP.out.reads,
-        ch_hostile_ref_dir,
-        params.hostile_ref_name ?: params.hostile_index // Use either explicit ref name or fall back to index
+        ch_hostile_ref_dir.map { ref_dir -> [ ref_name, ref_dir ] }
     )
     versions_coll = versions_coll.mix(HOSTILE_CLEAN.out.versions)
 

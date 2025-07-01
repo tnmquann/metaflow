@@ -1,8 +1,9 @@
 # Nextflow specific
 .nextflow/
+.nf-test/
 work/
 
-# Hidden files (starting with dot)
+# Hidden files
 .nextflow*
 .vscode*
 .vscode/
