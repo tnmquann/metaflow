@@ -43,9 +43,10 @@
             "properties": {
                 "sourmash_database": {
                     "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to Sourmash database (.rocksdb)",
-                    "help_text": "Path to a Sourmash database in RocksDB format for taxonomic profiling"
+                    "pattern": "^.+$",
+                    "exists": true,
+                    "description": "Path to Sourmash database (.rocksdb, .zip, or directory)",
+                    "help_text": "Path to a Sourmash database in RocksDB format (.rocksdb), ZIP format (.zip), or directory containing database files"
                 },
                 "yacht_database": {
                     "type": "string",
