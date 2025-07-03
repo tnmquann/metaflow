@@ -7,8 +7,7 @@ process MERGE_PAIREDENDSEQS {
 
     publishDir "${params.merged_seq_dir}",
         mode: params.publish_dir_mode,
-        enabled: params.enable_copymergedseqs,
-        saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
+        enabled: params.enable_copymergedseqs
 
     input:
     tuple val(meta), path(reads)  // reads is now a list of two files
