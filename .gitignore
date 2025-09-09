@@ -1,6 +1,7 @@
 # Nextflow specific
 .nextflow/
 .nf-test/
+.nf-test.*
 work/
 
 # Hidden files
@@ -13,3 +14,4 @@ work/
 # Other files and directories to ignore
 instant_scripts/
 results/
+playground/
