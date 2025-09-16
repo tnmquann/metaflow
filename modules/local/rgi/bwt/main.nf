@@ -47,7 +47,7 @@ process RGI_BWT {
     mkdir -p ${prefix}
     
     # Set default RGI bwt options (can be overridden by args)
-    DEFAULT_ARGS="--local -a kma"
+    DEFAULT_ARGS="--local -a kma --clean"
     
     # Run RGI BWT
     rgi bwt \\
@@ -61,15 +61,14 @@ process RGI_BWT {
         exit 1
     }
 
+    # Remove intermediate files if they exist
+    find "./${prefix}" -type f \\( -name "*.bam" -o -name "*.bam.bai" \\) -delete
+
     # Verify output files were created
     if [ ! -d "${prefix}" ] || [ -z "\$(ls -A ${prefix} 2>/dev/null)" ]; then
         echo "ERROR: RGI bwt did not produce expected output files" >&2
         exit 1
     fi
-
-    # Remove intermediate files if they exist
-    [ -f "./${prefix}/*.bam" ] && rm -f "./${prefix}/*.bam"
-    [ -f "./${prefix}/*.bam.bai" ] && rm -f "./${prefix}/*.bam.bai"
 
     # Clean up symlink
     [ -L "./localDB" ] && rm -f "./localDB"
