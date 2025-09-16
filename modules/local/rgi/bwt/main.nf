@@ -12,9 +12,9 @@ process RGI_BWT {
     path db                                       // RGI database directory
 
     output:
-    tuple val(meta), path("${prefix}/"), emit: outdir
-    tuple val(meta), path("${prefix}/*.json"), emit: json, optional: true
-    tuple val(meta), path("${prefix}/*.txt"), emit: tsv, optional: true
+    tuple val(meta), path("${meta.id}"), emit: outdir        // Changed from ${prefix}/ to ${meta.id}
+    tuple val(meta), path("${meta.id}/*.json"), emit: json, optional: true
+    tuple val(meta), path("${meta.id}/*.txt"), emit: tsv, optional: true
     path "versions.yml", emit: versions
 
     when:
@@ -22,15 +22,15 @@ process RGI_BWT {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    prefix = task.ext.prefix ?: "${meta.id}"
 
     """
     # Determine DB version from prepared DB folder (look for _all.fasta files)
-    DB_VERSION=\$(find ${db} -name "card_database_*_all.fasta" -exec basename {} \\; | \\
+    DB_VERSION=\$(find ${db}/ -name "card_database_*_all.fasta" -exec basename {} \\; | \\
                   sed 's/card_database_v\\([0-9.]*\\)_all.*/\\1/' | head -1)
     if [ -z "\$DB_VERSION" ]; then
         echo "WARNING: Could not determine database version from _all.fasta files, trying regular fasta files"
-        DB_VERSION=\$(find ${db} -name "card_database_*.fasta" -exec basename {} \\; | \\
+        DB_VERSION=\$(find ${db}/ -name "card_database_*.fasta" -exec basename {} \\; | \\
                       sed 's/card_database_v\\([0-9.]*\\).*/\\1/' | head -1 || echo "unknown")
     fi
 
@@ -68,8 +68,8 @@ process RGI_BWT {
     fi
 
     # Remove intermediate files if they exist
-    [ -f "./${prefix}/${prefix}.bam" ] && rm -f "./${prefix}/${prefix}.bam"
-    [ -f "./${prefix}/${prefix}.bam.bai" ] && rm -f "./${prefix}/${prefix}.bam.bai"
+    [ -f "./${prefix}/*.bam" ] && rm -f "./${prefix}/*.bam"
+    [ -f "./${prefix}/*.bam.bai" ] && rm -f "./${prefix}/*.bam.bai"
 
     # Clean up symlink
     [ -L "./localDB" ] && rm -f "./localDB"
@@ -86,7 +86,7 @@ process RGI_BWT {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    prefix = task.ext.prefix ?: "${meta.id}"
     """
     mkdir -p ${prefix}
     touch ${prefix}/${prefix}.json
@@ -97,13 +97,10 @@ process RGI_BWT {
     touch ${prefix}/${prefix}.overall_mapping_stats.txt
     touch ${prefix}/${prefix}.reference_mapping_stats.txt
 
-    RGI_VERSION=\$(rgi main --version 2>/dev/null || echo "rgi-stub")
-    DB_VERSION="4.0.1"
-
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
+        rgi: "rgi-stub"
+        rgi-database: "4.0.1"
     END_VERSIONS
     """
 }

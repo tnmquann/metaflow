@@ -8,6 +8,8 @@ include { SOURMASH_FASTMULTIGATHER } from './modules/local/sourmash/fastmultigat
 include { YACHT_RUN } from './modules/local/yacht/run/main'
 include { PROCESS_READBASED_RESULTS } from './modules/local/finalize/readbased/process_readbased'
 include { CLEANUP } from './modules/local/cleanup/main'
+include { RGI_PREPARECARDDB } from './modules/local/rgi/preparecarddb/main'
+include { RGI_BWT } from './modules/local/rgi/bwt/main'
 
 // Subworkflow imports
 include { PREPROCESS } from './subworkflows/local/preprocess'
@@ -73,8 +75,35 @@ workflow {
     // Run preprocessing subworkflow including QC, trimming, and host removal
     PREPROCESS(input_ch)
 
-    // Merge paired-end sequences for downstream analysis
-    MERGE_PAIREDENDSEQS(PREPROCESS.out.cleaned_reads)
+    // Create a fork in the workflow after PREPROCESS by duplicating the channel
+    def cleaned_reads_ch = PREPROCESS.out.cleaned_reads
+
+    // RGI Branch - Transform reads for RGI_BWT
+    def rgi_reads = cleaned_reads_ch
+        .map { meta, reads -> 
+            // Split the reads array into individual paths for RGI
+            def read1 = reads[0]
+            def read2 = reads[1]
+            return [meta, read1, read2]
+        }
+
+    // MERGE Branch - Use original format for MERGE_PAIREDENDSEQS
+    def merge_reads = cleaned_reads_ch
+
+    // RGI Branch
+    // Prepare RGI database if not provided
+    ch_rgi_db = params.rgi_preparecarddb_dir ? 
+        Channel.value(file(params.rgi_preparecarddb_dir)) : 
+        RGI_PREPARECARDDB([]).db
+
+    // Run RGI BWT using cleaned reads and prepared database
+    RGI_BWT(
+        rgi_reads,
+        ch_rgi_db
+    )
+
+    // MERGE Branch - existing workflow continues
+    MERGE_PAIREDENDSEQS(merge_reads)
 
     // Prepare input for SOURMASH_MANYSKETCH
     ch_manysketch_csv_input = MERGE_PAIREDENDSEQS.out.merged_seqs
