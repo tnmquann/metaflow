@@ -78,31 +78,31 @@ workflow {
     // Create a fork in the workflow after PREPROCESS by duplicating the channel
     def cleaned_reads_ch = PREPROCESS.out.cleaned_reads
 
-    // RGI Branch - Transform reads for RGI_BWT
-    def rgi_reads = cleaned_reads_ch
-        .map { meta, reads -> 
-            // Split the reads array into individual paths for RGI
-            def read1 = reads[0]
-            def read2 = reads[1]
-            return [meta, read1, read2]
-        }
+    // RGI Branch - Only execute if enable_rgi_bwt is true
+    if (params.enable_rgi_bwt) {
+        // Transform reads for RGI_BWT
+        def rgi_reads = cleaned_reads_ch
+            .map { meta, reads -> 
+                // Split the reads array into individual paths for RGI
+                def read1 = reads[0]
+                def read2 = reads[1]
+                return [meta, read1, read2]
+            }
 
-    // MERGE Branch - Use original format for MERGE_PAIREDENDSEQS
-    def merge_reads = cleaned_reads_ch
+        // Prepare RGI database if not provided
+        ch_rgi_db = params.rgi_preparecarddb_dir ? 
+            Channel.value(file(params.rgi_preparecarddb_dir)) : 
+            RGI_PREPARECARDDB([]).db
 
-    // RGI Branch
-    // Prepare RGI database if not provided
-    ch_rgi_db = params.rgi_preparecarddb_dir ? 
-        Channel.value(file(params.rgi_preparecarddb_dir)) : 
-        RGI_PREPARECARDDB([]).db
-
-    // Run RGI BWT using cleaned reads and prepared database
-    RGI_BWT(
-        rgi_reads,
-        ch_rgi_db
-    )
+        // Run RGI BWT using cleaned reads and prepared database
+        RGI_BWT(
+            rgi_reads,
+            ch_rgi_db
+        )
+    }
 
     // MERGE Branch - existing workflow continues
+    def merge_reads = cleaned_reads_ch
     MERGE_PAIREDENDSEQS(merge_reads)
 
     // Prepare input for SOURMASH_MANYSKETCH
