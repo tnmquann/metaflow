@@ -1,6 +1,7 @@
 # Nextflow specific
 .nextflow/
 .nf-test/
+.nf-test.*
 work/
 
 # Hidden files

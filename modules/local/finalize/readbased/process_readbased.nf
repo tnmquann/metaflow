@@ -58,6 +58,7 @@ process PROCESS_READBASED_RESULTS {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: \$(python --version 2>&1 | sed 's/Python //g')
+        conda-forge: pandas=2.2.3 openpyxl=3.1.5
     END_VERSIONS
     """
 

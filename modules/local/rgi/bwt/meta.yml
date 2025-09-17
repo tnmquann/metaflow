@@ -1,0 +1,94 @@
+name: rgi_bwt
+description: Align metagenomic reads to CARD and wildCARD reference using KMA, Bowtie2 or BWA and provide antibiotic resistance gene detection reports
+keywords:
+  - bacteria
+  - metagenomics
+  - fastq
+  - antibiotic resistance
+  - alignment
+  - kma
+  - bowtie2
+  - bwa
+tools:
+  - rgi:
+      description: |
+        RGI (Resistance Gene Identifier) bwt aligns metagenomic reads to CARD and wildCARD reference sequences 
+        using KMA (default), Bowtie2, or BWA aligners. It provides comprehensive antibiotic resistance gene 
+        detection from paired-end FASTQ reads with results at both allele and gene levels.
+      homepage: https://card.mcmaster.ca
+      documentation: https://github.com/arpcard/rgi
+      tool_dev_url: https://github.com/arpcard/rgi
+      doi: "10.1093/nar/gkz935"
+      licence: ["https://card.mcmaster.ca/about"]
+      args_id: "$args"
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test', single_end:false ]
+    - reads1:
+        type: file
+        description: Forward reads in FASTQ format (R1)
+        pattern: "*.{fastq,fastq.gz,fq,fq.gz}"
+    - reads2:
+        type: file
+        description: Reverse reads in FASTQ format (R2)
+        pattern: "*.{fastq,fastq.gz,fq,fq.gz}"
+  - db:
+      type: directory
+      description: |
+        Directory containing the prepared RGI database with localDB subdirectory. 
+        This should be the output from RGI_PREPARECARDDB process containing 
+        card_database_*.fasta files and localDB folder for alignment indices.
+      pattern: "*/"
+output:
+  outdir:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "${prefix}/":
+          type: directory
+          description: Complete output directory containing all RGI bwt results
+          pattern: "*/"
+  json:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.json":
+          type: file
+          description: |
+            JSON formatted file with detailed RGI bwt results including allele-level 
+            and gene-level mapping data with resistance annotations
+          pattern: "*.json"
+          ontologies:
+            - edam: http://edamontology.org/format_3464 # JSON
+  tsv:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.txt":
+          type: file
+          description: |
+            Tab-delimited files with RGI bwt results including:
+            - allele_mapping_data.txt: Read mapping results at allele level
+            - gene_mapping_data.txt: Read mapping results at gene level  
+            - artifacts_mapping_stats.txt: Statistics for read mapping artifacts
+            - overall_mapping_stats.txt: Statistics for overall read mapping results
+            - reference_mapping_stats.txt: Statistics for reference matches
+          pattern: "*.txt"
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@tnmquann"
+maintainers:
+  - "@tnmquann"

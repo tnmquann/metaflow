@@ -1,0 +1,59 @@
+name: rgi_preparecarddb
+description: Prepare and process the CARD database for RGI to predict antibiotic resistance from protein or nucleotide data (downloads database if not provided)
+keywords:
+  - bacteria
+  - fasta
+  - antibiotic resistance
+  - database
+  - card
+  - wildcard
+  - preparation
+tools:
+  - rgi:
+      description: |
+        This module preprocesses the CARD (Comprehensive Antibiotic Resistance Database) 
+        and WildCARD variants to create a complete database for RGI analysis. If input 
+        data is provided, it only runs rgi load. If no input is provided, it downloads 
+        CARD data, runs card annotation, downloads wildcard variants, runs wildcard 
+        annotation, and loads the complete database with local indices.
+      homepage: https://card.mcmaster.ca
+      documentation: https://github.com/arpcard/rgi
+      tool_dev_url: https://github.com/arpcard/rgi
+      doi: "10.1093/nar/gkz935"
+      licence: ["https://card.mcmaster.ca/about"]
+      identifier: ""
+input:
+  - card:
+      type: path
+      description: |
+        Optional CARD database directory containing card.json, card_database_*.fasta files, 
+        and wildcard directory with variant data. If not provided, the module will 
+        download and process CARD data automatically.
+      pattern: "*/"
+      required: false
+output:
+  - db:
+      - rgi_db:
+          type: directory
+          description: |
+            Directory containing the processed CARD database files including CARD and WildCARD data.
+            Contains card.json, card_database_*.fasta files, wildcard directory with variant data, 
+            and localDB directory with indices for alignment tools.
+          pattern: "*/"
+  - tool_version:
+      - RGI_VERSION:
+          type: string
+          description: The version of the tool in string format (useful for downstream tools such as hAMRronization)
+  - db_version:
+      - DB_VERSION:
+          type: string
+          description: The version of the used database in string format (useful for downstream tools such as hAMRronization)
+  - versions:
+      - versions.yml:
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"
+authors:
+  - "@tnmquann"
+maintainers:
+  - "@tnmquann"

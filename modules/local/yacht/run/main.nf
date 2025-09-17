@@ -44,9 +44,11 @@ process YACHT_RUN {
     rm -f *_${params.ksize}.sig.zip
     find . -type d -name "*intermediate_files" -exec rm -rf {} +
 
+    # Correct version extraction for YACHT
+    YACHT_VERSION=\$(yacht --version | grep -oP '(?<=version )[^ ]+(?= )')
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        yacht: \$(yacht --version 2>&1 | head -n 1)
+        yacht: "\$YACHT_VERSION"
     END_VERSIONS
     """
 
