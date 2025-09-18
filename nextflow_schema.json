@@ -10,7 +10,10 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["input", "outdir"],
+            "required": [
+                "input",
+                "outdir"
+            ],
             "properties": {
                 "input": {
                     "type": "string",
@@ -26,13 +29,23 @@
                     "type": "string",
                     "default": "csv",
                     "description": "Format of input files",
-                    "enum": ["csv", "directory"]
+                    "enum": [
+                        "csv",
+                        "directory"
+                    ]
                 },
                 "publish_dir_mode": {
                     "type": "string",
                     "default": "copy",
                     "description": "Method used to save pipeline results",
-                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
+                    "enum": [
+                        "symlink",
+                        "rellink",
+                        "link",
+                        "copy",
+                        "copyNoFollow",
+                        "move"
+                    ]
                 }
             }
         },
@@ -77,6 +90,46 @@
                     "default": "human-t2t-hla"
                 }
             }
+        },
+        "assembly_options": {
+            "title": "Assembly options",
+            "type": "object",
+            "description": "Options controlling assembly workflows and optional read-based analysis",
+            "properties": {
+                "enable_readbase": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run the read-based profiling subworkflow"
+                },
+                "skip_megahit": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the MEGAHIT assembly"
+                },
+                "skip_spades": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the SPAdes assembly"
+                },
+                "megahit_options": {
+                    "type": "string",
+                    "description": "Additional command-line options to pass to MEGAHIT"
+                },
+                "spades_options": {
+                    "type": "string",
+                    "description": "Additional command-line options to pass to SPAdes"
+                },
+                "megahit_fix_cpu_1": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Force MEGAHIT to use a single CPU"
+                },
+                "spades_fix_cpus": {
+                    "type": "integer",
+                    "default": -1,
+                    "description": "Set a fixed number of CPUs for SPAdes when >= 0"
+                }
+            }
         }
     },
     "allOf": [
@@ -88,6 +141,9 @@
         },
         {
             "$ref": "#/$defs/host_removal_options"
+        },
+        {
+            "$ref": "#/$defs/assembly_options"
         }
     ]
 }

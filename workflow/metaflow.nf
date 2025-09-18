@@ -4,6 +4,7 @@ nextflow.enable.dsl = 2
 // Import subworkflows
 include { PREPROCESS } from '../subworkflows/local/preprocess'
 include { READ_BASED } from '../subworkflows/local/read_based'
+include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based'
 include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
 
@@ -57,14 +58,52 @@ workflow METAFLOW {
 
         // Run subworkflows
         PREPROCESS(input_ch)
-        READ_BASED(PREPROCESS.out.cleaned_reads)
+
+        def cleaned_reads_source = PREPROCESS.out.cleaned_reads
+        def read_based_versions_ch = Channel.empty()
+        def read_based_results_ch = Channel.empty()
+        def read_based_rgi_ch = Channel.empty()
+
+        def assembly_versions_ch = Channel.empty()
+        def assembly_megahit_contigs_ch = Channel.empty()
+        def assembly_metaspades_contigs_ch = Channel.empty()
+
+        if (params.enable_readbase) {
+            READ_BASED(cleaned_reads_source)
+            read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
+            read_based_results_ch = READ_BASED.out.results ?: Channel.empty()
+            read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
+        } else {
+            ASSEMBLY_BASED(cleaned_reads_source)
+            assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
+            assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
+            assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
+        }
+
+        def combined_versions = Channel.empty()
+        combined_versions = combined_versions.mix(assembly_versions_ch ?: Channel.empty())
+        combined_versions = combined_versions.mix(read_based_versions_ch ?: Channel.empty())
 
         // Optional cleanup
         if (params.cleanup) {
-            CLEANUP(READ_BASED.out.results.collect())
+            def cleanup_sources = []
+            if (params.enable_readbase) {
+                cleanup_sources << read_based_results_ch
+            } else {
+                cleanup_sources << assembly_megahit_contigs_ch
+                cleanup_sources << assembly_metaspades_contigs_ch
+            }
+            cleanup_sources = cleanup_sources.findAll { it }
+            if (cleanup_sources) {
+                def cleanup_trigger = Channel.merge(*cleanup_sources).collect()
+                CLEANUP(cleanup_trigger)
+            }
         }
 
     emit:
-        versions = READ_BASED.out.versions // Emit versions for tracking
-        results = READ_BASED.out.results  // Emit final results
+        versions = combined_versions.ifEmpty(null)
+        results = read_based_results_ch.ifEmpty(null)
+        read_based_rgi = read_based_rgi_ch.ifEmpty(null)
+        assembly_megahit_contigs = assembly_megahit_contigs_ch.ifEmpty(null)
+        assembly_metaspades_contigs = assembly_metaspades_contigs_ch.ifEmpty(null)
 }
