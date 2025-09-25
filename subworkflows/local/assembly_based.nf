@@ -3,6 +3,7 @@ nextflow.enable.dsl = 2
 
 include { MEGAHIT } from '../../modules/nf-core/megahit/main'
 include { SPADES as METASPADES } from '../../modules/nf-core/spades/main'
+include { QUAST_METAQUAST as METAQUAST } from '../../modules/local/quast/metaquast/main'
 
 workflow ASSEMBLY_BASED {
     take:
@@ -12,8 +13,9 @@ workflow ASSEMBLY_BASED {
     versions_ch = Channel.empty()
     ch_megahit_outputs = Channel.empty()
     ch_metaspades_outputs = Channel.empty()
+    ch_assemblies_for_quast = Channel.empty()
 
-    // MEGAHIT Assembly - Keep existing implementation
+    // MEGAHIT Assembly
     if (!params.skip_megahit) {
         ch_megahit_input = cleaned_reads_ch.map { meta, reads -> 
             def reads_list = reads.collect()
@@ -25,33 +27,41 @@ workflow ASSEMBLY_BASED {
 
         MEGAHIT(ch_megahit_input)
         versions_ch = versions_ch.mix(MEGAHIT.out.versions)
-        ch_megahit_outputs = MEGAHIT.out.contigs
+        ch_megahit_outputs = MEGAHIT.out.contigs.map { meta, assembly ->
+            def meta_new = meta + [assembler: 'MEGAHIT']
+            [meta_new, assembly]
+        }
+        ch_assemblies_for_quast = ch_assemblies_for_quast.mix(ch_megahit_outputs)
     }
 
-    // METASPADES Assembly - Modified implementation  
+    // METASPADES Assembly
     if (!params.skip_spades) {
         ch_spades_input = cleaned_reads_ch.map { meta, reads -> 
             def reads_list = reads.collect()
             def sorted_reads = reads_list.sort()
             def illumina = sorted_reads.size() > 1 ? sorted_reads : [sorted_reads[0]]
-            // Ensure meta.single_end is properly set
             meta.single_end = sorted_reads.size() <= 1
-            [meta, illumina, [], []] // illumina, pacbio, nanopore
+            [meta, illumina, [], []]
         }
 
-        METASPADES(
-            ch_spades_input,
-            [],  // Empty yml channel
-            []   // Empty hmm channel
-        )
-        
+        METASPADES(ch_spades_input, [], [])
         versions_ch = versions_ch.mix(METASPADES.out.versions)
-        // Prefer contigs over scaffolds for downstream analysis
-        ch_metaspades_outputs = METASPADES.out.contigs
+        ch_metaspades_outputs = METASPADES.out.contigs.map { meta, assembly ->
+            def meta_new = meta + [assembler: 'SPAdes']
+            [meta_new, assembly]
+        }
+        ch_assemblies_for_quast = ch_assemblies_for_quast.mix(ch_metaspades_outputs)
+    }
+
+    // QUAST Analysis
+    if (!params.skip_quast) {
+        METAQUAST(ch_assemblies_for_quast)
+        versions_ch = versions_ch.mix(METAQUAST.out.versions)
     }
 
     emit:
     megahit_contigs = ch_megahit_outputs
     metaspades_contigs = ch_metaspades_outputs
     versions = versions_ch.ifEmpty(null)
+    quast_qc = params.skip_quast ? null : METAQUAST.out.qc
 }
