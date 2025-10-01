@@ -4,6 +4,7 @@ nextflow.enable.dsl = 2
 include { MEGAHIT } from '../../modules/nf-core/megahit/main'
 include { SPADES as METASPADES } from '../../modules/nf-core/spades/main'
 include { QUAST_METAQUAST as METAQUAST } from '../../modules/local/quast/metaquast/main'
+include { CONTIG_ANALYSIS } from './contig_analysis'
 
 workflow ASSEMBLY_BASED {
     take:
@@ -53,10 +54,26 @@ workflow ASSEMBLY_BASED {
         ch_assemblies_for_quast = ch_assemblies_for_quast.mix(ch_metaspades_outputs)
     }
 
-    // QUAST Analysis
+    // Combine all assemblies for downstream analysis
+    ch_all_assemblies = ch_megahit_outputs.mix(ch_metaspades_outputs)
+
+    // QUAST Analysis (can run in parallel with CONTIG_ANALYSIS)
     if (!params.skip_quast) {
         METAQUAST(ch_assemblies_for_quast)
         versions_ch = versions_ch.mix(METAQUAST.out.versions)
+    }
+
+    // CONTIG_ANALYSIS (runs in parallel with QUAST)
+    def contig_analysis_coverage = Channel.empty()
+    def contig_analysis_versions = Channel.empty()
+    def contig_analysis_bundle = Channel.empty()
+    
+    if (!params.skip_contig_analysis) {
+        CONTIG_ANALYSIS(ch_all_assemblies, cleaned_reads_ch)
+        contig_analysis_coverage = CONTIG_ANALYSIS.out.coverage
+        contig_analysis_versions = CONTIG_ANALYSIS.out.versions
+        contig_analysis_bundle = CONTIG_ANALYSIS.out.contig_qc_bundle
+        versions_ch = versions_ch.mix(contig_analysis_versions)
     }
 
     emit:
@@ -64,4 +81,6 @@ workflow ASSEMBLY_BASED {
     metaspades_contigs = ch_metaspades_outputs
     versions = versions_ch.ifEmpty(null)
     quast_qc = params.skip_quast ? null : METAQUAST.out.qc
+    contig_qc_coverage = contig_analysis_coverage.ifEmpty(null)
+    contig_qc_bundle = contig_analysis_bundle.ifEmpty(null)
 }
