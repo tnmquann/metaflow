@@ -9,7 +9,14 @@ include { GENOMAD_ENDTOEND } from '../../modules/nf-core/genomad/endtoend/main'
 include { GENOMAD_DOWNLOAD } from '../../modules/nf-core/genomad/download/main'
 include { BWAMEM2_INDEX as BWAMEM2_INDEX_CONTIGS } from '../../modules/nf-core/bwamem2/index/main'
 include { BWAMEM2_MEM as BWAMEM2_MEM_CONTIGS } from '../../modules/nf-core/bwamem2/mem/main'
-include { SAMTOOLS_COVERAGE } from '../../modules/local/samtools/coverage/main'  // Use local version
+include { SAMTOOLS_COVERAGE } from '../../modules/local/samtools/coverage/main'
+
+// Annotation modules
+include { PROKKA } from '../../modules/nf-core/prokka/main'
+include { PYRODIGAL } from '../../modules/nf-core/pyrodigal/main'
+include { GUNZIP as GUNZIP_PYRODIGAL_FNA } from '../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_PYRODIGAL_FAA } from '../../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_PYRODIGAL_GBK } from '../../modules/nf-core/gunzip/main'
 
 workflow CONTIG_ANALYSIS {
     take:
@@ -106,7 +113,42 @@ workflow CONTIG_ANALYSIS {
         ch_versions = ch_versions.mix(GENOMAD_ENDTOEND.out.versions)
     }
 
-    // Step 9: Combine QC results for downstream analysis
+    // Step 9 (optional): Contig Annotation
+    ch_annotation_faa = Channel.empty()
+    ch_annotation_fna = Channel.empty()
+    ch_annotation_gbk = Channel.empty()
+    
+    if (!params.skip_contig_annotation) {
+        if (params.annotation_tool == 'pyrodigal') {
+            PYRODIGAL(ch_assemblies, "gbk")
+            
+            GUNZIP_PYRODIGAL_FAA(PYRODIGAL.out.faa)
+            GUNZIP_PYRODIGAL_FNA(PYRODIGAL.out.fna)
+            GUNZIP_PYRODIGAL_GBK(PYRODIGAL.out.annotations)
+            
+            ch_annotation_faa = GUNZIP_PYRODIGAL_FAA.out.gunzip
+            ch_annotation_fna = GUNZIP_PYRODIGAL_FNA.out.gunzip
+            ch_annotation_gbk = GUNZIP_PYRODIGAL_GBK.out.gunzip
+            
+            ch_versions = ch_versions.mix(PYRODIGAL.out.versions)
+            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_FAA.out.versions)
+            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_FNA.out.versions)
+            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_GBK.out.versions)
+            
+        } else if (params.annotation_tool == 'prokka') {
+            PROKKA(ch_assemblies, [], [])
+            
+            ch_annotation_faa = PROKKA.out.faa
+            ch_annotation_fna = PROKKA.out.fna
+            ch_annotation_gbk = PROKKA.out.gbk
+            
+            ch_versions = ch_versions.mix(PROKKA.out.versions)
+        } else {
+            log.warn "Invalid annotation_tool: ${params.annotation_tool}. Skipping annotation. Valid options: 'pyrodigal', 'prokka'"
+        }
+    }
+
+    // Step 10: Combine QC results for downstream analysis
     ch_contig_qc_bundle = SAMTOOLS_COVERAGE.out.coverage
         .join(SEQKIT_FX2TAB.out.text, by: 0, remainder: true)
 
@@ -134,6 +176,9 @@ workflow CONTIG_ANALYSIS {
     skani_results      = ch_skani_results
     genomad_plasmids   = ch_genomad_plasmid_summary
     genomad_viruses    = ch_genomad_virus_summary
+    annotation_faa     = ch_annotation_faa
+    annotation_fna     = ch_annotation_fna
+    annotation_gbk     = ch_annotation_gbk
     contig_qc_bundle   = ch_contig_qc_bundle
     versions           = ch_versions
 }

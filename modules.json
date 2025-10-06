@@ -40,6 +40,11 @@
             "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
             "installed_by": ["modules"]
           },
+          "gunzip": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
           "hostile/clean": {
             "branch": "master",
             "git_sha": "8214dbd6fd663b3954aabef10676f654d8836c63",
@@ -58,6 +63,16 @@
           "multiqc": {
             "branch": "master",
             "git_sha": "471cf3ca1617271b9b6fea09ea2ebdee78b874de",
+            "installed_by": ["modules"]
+          },
+          "prokka": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
+          "pyrodigal": {
+            "branch": "master",
+            "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
             "installed_by": ["modules"]
           },
           "samtools/coverage": {
