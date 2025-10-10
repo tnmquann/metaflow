@@ -1,121 +1,198 @@
 {
-  "name": "profiler_sourmash",
-  "homePage": "https://github.com/tnmquann/profiler_sourmash",
-  "repos": {
-    "https://github.com/nf-core/modules.git": {
-      "modules": {
-        "nf-core": {
-          "bwamem2/index": {
-            "branch": "master",
-            "git_sha": "d86336f3e7ae0d5f76c67b0859409769cfeb2af2",
-            "installed_by": ["modules"]
-          },
-          "bwamem2/mem": {
-            "branch": "master",
-            "git_sha": "d86336f3e7ae0d5f76c67b0859409769cfeb2af2",
-            "installed_by": ["modules"]
-          },
-          "cat/fastq": {
-            "branch": "master",
-            "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
-            "installed_by": ["modules"]
-          },
-          "fastp": {
-            "branch": "master",
-            "git_sha": "d082103d7976a2804f21225446cc110cbd822f4c",
-            "installed_by": ["modules"]
-          },
-          "fastqc": {
-            "branch": "master",
-            "git_sha": "b1966f36ec9de31927b2603d8f499960b2a4c294",
-            "installed_by": ["modules"]
-          },
-          "genomad/download": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "genomad/endtoend": {
-            "branch": "master",
-            "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
-            "installed_by": ["modules"]
-          },
-          "gunzip": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "hostile/clean": {
-            "branch": "master",
-            "git_sha": "8214dbd6fd663b3954aabef10676f654d8836c63",
-            "installed_by": ["modules"]
-          },
-          "hostile/fetch": {
-            "branch": "master",
-            "git_sha": "8214dbd6fd663b3954aabef10676f654d8836c63",
-            "installed_by": ["modules"]
-          },
-          "megahit": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "multiqc": {
-            "branch": "master",
-            "git_sha": "471cf3ca1617271b9b6fea09ea2ebdee78b874de",
-            "installed_by": ["modules"]
-          },
-          "prokka": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "pyrodigal": {
-            "branch": "master",
-            "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
-            "installed_by": ["modules"]
-          },
-          "samtools/coverage": {
-            "branch": "master",
-            "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
-            "installed_by": ["modules"]
-          },
-          "seqkit/fx2tab": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "skani/search": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "sourmash/index": {
-            "branch": "master",
-            "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
-            "installed_by": ["modules"]
-          },
-          "spades": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          },
-          "tiara/tiara": {
-            "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
-            "installed_by": ["modules"]
-          }
+    "name": "profiler_sourmash",
+    "homePage": "https://github.com/tnmquann/profiler_sourmash",
+    "repos": {
+        "https://github.com/nf-core/modules.git": {
+            "modules": {
+                "nf-core": {
+                    "bowtie2/align": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "bowtie2/build": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "bwamem2/index": {
+                        "branch": "master",
+                        "git_sha": "d86336f3e7ae0d5f76c67b0859409769cfeb2af2",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "bwamem2/mem": {
+                        "branch": "master",
+                        "git_sha": "d86336f3e7ae0d5f76c67b0859409769cfeb2af2",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "cat/fastq": {
+                        "branch": "master",
+                        "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "fastp": {
+                        "branch": "master",
+                        "git_sha": "d082103d7976a2804f21225446cc110cbd822f4c",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "fastqc": {
+                        "branch": "master",
+                        "git_sha": "b1966f36ec9de31927b2603d8f499960b2a4c294",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "genomad/download": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "genomad/endtoend": {
+                        "branch": "master",
+                        "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "gunzip": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "hostile/clean": {
+                        "branch": "master",
+                        "git_sha": "8214dbd6fd663b3954aabef10676f654d8836c63",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "hostile/fetch": {
+                        "branch": "master",
+                        "git_sha": "8214dbd6fd663b3954aabef10676f654d8836c63",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "megahit": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "multiqc": {
+                        "branch": "master",
+                        "git_sha": "471cf3ca1617271b9b6fea09ea2ebdee78b874de",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "prokka": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "pyrodigal": {
+                        "branch": "master",
+                        "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "samtools/coverage": {
+                        "branch": "master",
+                        "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "samtools/index": {
+                        "branch": "master",
+                        "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "samtools/sort": {
+                        "branch": "master",
+                        "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "samtools/view": {
+                        "branch": "master",
+                        "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "seqkit/fx2tab": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "skani/search": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "sourmash/index": {
+                        "branch": "master",
+                        "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "spades": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "tiara/tiara": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    }
+                }
+            },
+            "subworkflows": {
+                "nf-core": {
+                    "utils_nfschema_plugin": {
+                        "branch": "master",
+                        "git_sha": "2fd2cd6d0e7b273747f32e465fdc6bcc3ae0814e",
+                        "installed_by": [
+                            "subworkflows"
+                        ]
+                    }
+                }
+            }
         }
-      },
-      "subworkflows": {
-        "nf-core": {
-          "utils_nfschema_plugin": {
-            "branch": "master",
-            "git_sha": "2fd2cd6d0e7b273747f32e465fdc6bcc3ae0814e",
-            "installed_by": ["subworkflows"]
-          }
-        }
-      }
     }
-  }
 }

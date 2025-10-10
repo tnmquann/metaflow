@@ -5,6 +5,7 @@ nextflow.enable.dsl = 2
 include { PREPROCESS } from '../subworkflows/local/preprocess'
 include { READ_BASED } from '../subworkflows/local/read_based'
 include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based'
+include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund'
 include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
 
@@ -67,6 +68,8 @@ workflow METAFLOW {
         def assembly_versions_ch = Channel.empty()
         def assembly_megahit_contigs_ch = Channel.empty()
         def assembly_metaspades_contigs_ch = Channel.empty()
+        def binning_bam_ch = Channel.empty()
+        def binning_versions_ch = Channel.empty()
 
         if (params.enable_readbase) {
             READ_BASED(cleaned_reads_source)
@@ -78,11 +81,19 @@ workflow METAFLOW {
             assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
             assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
             assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
+
+            // Run BINNING_BAMABUND with assembly outputs
+            def all_assemblies = assembly_megahit_contigs_ch.mix(assembly_metaspades_contigs_ch)
+            
+            BINNING_BAMABUND(all_assemblies, cleaned_reads_source)
+            binning_bam_ch = BINNING_BAMABUND.out.bam_bai ?: Channel.empty()
+            binning_versions_ch = BINNING_BAMABUND.out.versions ?: Channel.empty()
         }
 
         def combined_versions = Channel.empty()
         combined_versions = combined_versions.mix(assembly_versions_ch ?: Channel.empty())
         combined_versions = combined_versions.mix(read_based_versions_ch ?: Channel.empty())
+        combined_versions = combined_versions.mix(binning_versions_ch ?: Channel.empty())
 
         // Optional cleanup
         if (params.cleanup) {
@@ -92,6 +103,7 @@ workflow METAFLOW {
             } else {
                 cleanup_sources << assembly_megahit_contigs_ch
                 cleanup_sources << assembly_metaspades_contigs_ch
+                cleanup_sources << binning_bam_ch
             }
             cleanup_sources = cleanup_sources.findAll { it }
             if (cleanup_sources) {
@@ -106,4 +118,5 @@ workflow METAFLOW {
         read_based_rgi = read_based_rgi_ch.ifEmpty(null)
         assembly_megahit_contigs = assembly_megahit_contigs_ch.ifEmpty(null)
         assembly_metaspades_contigs = assembly_metaspades_contigs_ch.ifEmpty(null)
+        binning_bam = binning_bam_ch.ifEmpty(null)
 }
