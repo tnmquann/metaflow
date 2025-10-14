@@ -19,8 +19,8 @@ include { FASTA_BINNING_CONCOCT                 } from '../nf-core/fasta_binning
 
 workflow BINNING {
     take:
-    assemblies      // channel: [ val(meta), path(contigs) ] - from MEGAHIT/METASPADES
-    bam_bai         // channel: [ val(meta), path(bam), path(bai) ] - from BINNING_BAMABUND
+    assemblies      // channel: [ val(meta), path(contigs) ]
+    bam_bai         // channel: [ val(meta), [path(bams)], [path(bais)] ] - from BINNING_BAMABUND
 
     main:
     versions_ch = Channel.empty()
@@ -29,29 +29,23 @@ workflow BINNING {
     ch_concoct_bins = Channel.empty()
     ch_all_bins = Channel.empty()
 
-    // Group assemblies and BAMs by key (sample_id + assembler)
-    ch_assemblies_grouped = assemblies.map { meta, assembly ->
-        ["${meta.id}_${meta.assembler}", meta, assembly]
-    }
-
-    ch_bam_bai_grouped = bam_bai.map { meta, bam, bai ->
-        ["${meta.id}_${meta.assembler}", meta, bam, bai]
-    }
-
-    // Combine and create the bundle format expected by MAG-style BINNING
+    // Combine assemblies with their BAM/BAI files
     // Format: [ val(meta), path(assembly), [path(bams)], [path(bais)] ]
-    ch_for_binning = ch_assemblies_grouped
-        .combine(ch_bam_bai_grouped, by: 0)
-        .map { key, assembly_meta, assembly, bam_meta, bam, bai ->
-            // Create arrays for bams and bais - this is critical for CONCOCT
-            [assembly_meta, assembly, [bam], [bai]]
+    ch_for_binning = assemblies
+        .map { meta, assembly -> [meta.id + "_" + meta.assembler, meta, assembly] }
+        .join(
+            bam_bai.map { meta, bams, bais -> [meta.id + "_" + meta.assembler, bams, bais] },
+            by: 0
+        )
+        .map { key, meta, assembly, bams, bais ->
+            // Ensure assembly is single file, bams/bais are arrays
+            [meta, assembly, bams, bais]
         }
 
     // ==============================================
     // MetaBAT2 Binning
     // ==============================================
     if (!params.skip_metabat2) {
-        // Calculate depths using jgi_summarize_bam_contig_depths
         ch_summarizedepth_input = ch_for_binning.map { meta, assembly, bams, bais ->
             [meta, bams, bais]
         }
@@ -66,7 +60,6 @@ workflow BINNING {
                 [meta_new, depths]
             }
 
-        // Combine depths back with assemblies
         ch_metabat2_input = ch_for_binning
             .map { meta, assembly, bams, bais ->
                 def meta_new = meta.clone()
@@ -92,9 +85,6 @@ workflow BINNING {
 
         // Split unbinned contigs
         ch_metabat2_unbinned = METABAT2_METABAT2.out.unbinned
-            .map { meta, unbinned ->
-                [meta, unbinned]
-            }
 
         SPLIT_FASTA(ch_metabat2_unbinned)
         versions_ch = versions_ch.mix(SPLIT_FASTA.out.versions)
@@ -108,7 +98,6 @@ workflow BINNING {
     // MaxBin2 Binning
     // ==============================================
     if (!params.skip_maxbin2) {
-        // Convert depths for MaxBin2 format
         CONVERT_DEPTHS(ch_metabat2_input)
         versions_ch = versions_ch.mix(CONVERT_DEPTHS.out.versions)
 
@@ -122,11 +111,7 @@ workflow BINNING {
         MAXBIN2(ch_maxbin2_input)
         versions_ch = versions_ch.mix(MAXBIN2.out.versions)
 
-        // Adjust MaxBin2 file extensions
         ch_maxbin2_bins_to_adjust = MAXBIN2.out.binned_fastas
-            .map { meta, bins ->
-                [meta, bins]
-            }
 
         ADJUST_MAXBIN2_EXT(ch_maxbin2_bins_to_adjust)
 
@@ -140,42 +125,41 @@ workflow BINNING {
     }
 
     // ==============================================
-    // CONCOCT Binning
+    // CONCOCT Binning - Fixed to match MAG pattern
     // ==============================================
     if (!params.skip_concoct) {
-        // CRITICAL: CONCOCT requires:
-        // 1. Uncompressed FASTA files
-        // 2. Sorted BAM files with proper headers
-        // 3. Single BAM per assembly (not arrays)
-        ch_assemblies_for_gunzip_concoct = ch_for_binning.map { meta, assembly, bams, bais ->
-            [meta, assembly]
+        // Step 1: Decompress assemblies for CONCOCT (requires uncompressed FASTA)
+        ch_assemblies_for_gunzip = ch_for_binning.map { meta, assembly, bams, bais ->
+            def meta_new = meta.clone()
+            meta_new.binner = 'CONCOCT'
+            [meta_new, assembly]
         }
 
-        GUNZIP_ASSEMBLIES_CONCOCT(ch_assemblies_for_gunzip_concoct)
+        GUNZIP_ASSEMBLIES_CONCOCT(ch_assemblies_for_gunzip)
         versions_ch = versions_ch.mix(GUNZIP_ASSEMBLIES_CONCOCT.out.versions)
 
-        // Match uncompressed assemblies with their BAMs using composite key
-        ch_concoct_input = GUNZIP_ASSEMBLIES_CONCOCT.out.gunzip
-            .map { meta, assembly -> 
-                def new_meta = meta.clone()
-                new_meta.binner = 'CONCOCT'
-                ["${meta.id}_${meta.assembler}", new_meta, assembly]
+        // Step 2: Prepare multiMap input matching the FASTA_BINNING_CONCOCT signature
+        // CONCOCT expects: bins channel [meta, fasta] and bams channel [meta, [bams], [bais]]
+        ch_concoct_input = ch_for_binning
+            .map { meta, assembly, bams, bais ->
+                def meta_new = meta.clone()
+                meta_new.binner = 'CONCOCT'
+                [meta.id + "_" + meta.assembler, meta_new, assembly, bams, bais]
             }
-            .combine(
-                ch_for_binning.map { meta, assembly, bams, bais ->
-                    ["${meta.id}_${meta.assembler}", bams[0], bais[0]]
+            .join(
+                GUNZIP_ASSEMBLIES_CONCOCT.out.gunzip.map { meta, fasta ->
+                    [meta.id + "_" + meta.assembler, fasta]
                 },
                 by: 0
             )
-            .map { key, meta, assembly, bam, bai ->
-                [meta, assembly, bam, bai]
+            .map { key, meta, assembly_gz, bams, bais, fasta_uncompressed ->
+                [meta, fasta_uncompressed, bams, bais]
             }
-            .multiMap { meta, assembly, bam, bai -> 
-                bins: [meta, assembly]
-                bams: [meta, bam, bai]
+            .multiMap { meta, fasta, bams, bais ->
+                bins: [meta, fasta]
+                bams: [meta, bams, bais]
             }
 
-        // Run CONCOCT with properly formatted inputs
         FASTA_BINNING_CONCOCT(
             ch_concoct_input.bins,
             ch_concoct_input.bams
@@ -197,9 +181,9 @@ workflow BINNING {
         .mix(ch_concoct_bins)
 
     emit:
-    metabat2_bins   = ch_metabat2_bins      // channel: [ val(meta), path(bin.fa.gz) ]
-    maxbin2_bins    = ch_maxbin2_bins       // channel: [ val(meta), path(bin.fa.gz) ]
-    concoct_bins    = ch_concoct_bins       // channel: [ val(meta), path(bin.fa.gz) ]
-    all_bins        = ch_all_bins           // channel: [ val(meta), path(bin.fa.gz) ]
+    metabat2_bins   = ch_metabat2_bins
+    maxbin2_bins    = ch_maxbin2_bins
+    concoct_bins    = ch_concoct_bins
+    all_bins        = ch_all_bins
     versions        = versions_ch
 }
