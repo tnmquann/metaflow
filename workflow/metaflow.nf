@@ -8,6 +8,7 @@ include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based'
 include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund'
 include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
+include { BINNING } from '../subworkflows/local/binning'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -70,6 +71,7 @@ workflow METAFLOW {
         def assembly_metaspades_contigs_ch = Channel.empty()
         def binning_bam_ch = Channel.empty()
         def binning_versions_ch = Channel.empty()
+        def binning_bins_ch = Channel.empty()
 
         if (params.enable_readbase) {
             READ_BASED(cleaned_reads_source)
@@ -85,9 +87,18 @@ workflow METAFLOW {
             // Run BINNING_BAMABUND with assembly outputs
             def all_assemblies = assembly_megahit_contigs_ch.mix(assembly_metaspades_contigs_ch)
             
-            BINNING_BAMABUND(all_assemblies, cleaned_reads_source)
-            binning_bam_ch = BINNING_BAMABUND.out.bam_bai ?: Channel.empty()
-            binning_versions_ch = BINNING_BAMABUND.out.versions ?: Channel.empty()
+            if (!params.skip_binning_bamabund) {
+                BINNING_BAMABUND(all_assemblies, cleaned_reads_source)
+                binning_bam_ch = BINNING_BAMABUND.out.bam_bai ?: Channel.empty()
+                binning_versions_ch = BINNING_BAMABUND.out.versions ?: Channel.empty()
+
+                // Run BINNING with outputs from BINNING_BAMABUND
+                if (!params.skip_binning) {
+                    BINNING(all_assemblies, BINNING_BAMABUND.out.bam_bai)
+                    binning_bins_ch = BINNING.out.all_bins ?: Channel.empty()
+                    binning_versions_ch = binning_versions_ch.mix(BINNING.out.versions ?: Channel.empty())
+                }
+            }
         }
 
         def combined_versions = Channel.empty()
@@ -119,4 +130,5 @@ workflow METAFLOW {
         assembly_megahit_contigs = assembly_megahit_contigs_ch.ifEmpty(null)
         assembly_metaspades_contigs = assembly_metaspades_contigs_ch.ifEmpty(null)
         binning_bam = binning_bam_ch.ifEmpty(null)
+        binning_bins = binning_bins_ch.ifEmpty(null)
 }

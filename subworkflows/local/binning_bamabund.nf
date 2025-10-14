@@ -6,7 +6,7 @@ include { BOWTIE2_BUILD as BOWTIE2_ASSEMBLY_BUILD } from '../../modules/nf-core/
 include { BOWTIE2_ALIGN as BOWTIE2_ASSEMBLY_ALIGN } from '../../modules/nf-core/bowtie2/align/main'
 include { BWAMEM2_INDEX as BWAMEM2_ASSEMBLY_INDEX } from '../../modules/nf-core/bwamem2/index/main'
 include { BWAMEM2_MEM as BWAMEM2_ASSEMBLY_MEM }     from '../../modules/nf-core/bwamem2/mem/main'
-include { SAMTOOLS_VIEW }                           from '../../modules/nf-core/samtools/view/main'
+// include { SAMTOOLS_VIEW }                           from '../../modules/nf-core/samtools/view/main'
 include { SAMTOOLS_SORT }                           from '../../modules/nf-core/samtools/sort/main'
 include { SAMTOOLS_INDEX }                          from '../../modules/nf-core/samtools/index/main'
 
