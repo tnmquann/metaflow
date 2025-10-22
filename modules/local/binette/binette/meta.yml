@@ -1,0 +1,77 @@
+name: "binette_binette"
+description: Binette is a fast and accurate binning refinement tool to construct high quality MAGs from the output of multiple binning tools
+keywords:
+  - binning
+  - refinement
+  - metagenomics
+  - mag
+  - checkm2
+  - assembly
+tools:
+  - "binette":
+      description: "Fast and accurate binning refinement tool to construct high quality MAGs from the output of multiple binning tools"
+      homepage: "https://github.com/genotoul-bioinfo/Binette"
+      documentation: "https://binette.readthedocs.io/"
+      tool_dev_url: "https://github.com/genotoul-bioinfo/Binette"
+      doi: "10.21105/joss.06782"
+      licence: "GPL-3.0"
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test', input_mode:'contig2bin_tables' ] or [ id:'test', input_mode:'bin_dirs' ]
+        The input_mode field is required and must be either 'contig2bin_tables' or 'bin_dirs'
+  - contigs:
+      type: file
+      description: Contigs in FASTA format
+      pattern: "*.{fa,fasta,fna,fa.gz,fasta.gz,fna.gz}"
+  - bins:
+      type: file
+      description: |
+        Input bins in two possible formats:
+        - If meta.input_mode == 'contig2bin_tables': List of TSV files with contig-to-bin mappings (two columns: contig, bin)
+        - If meta.input_mode == 'bin_dirs': List of directories containing bin FASTA files
+      pattern: "*"
+  - proteins:
+      type: file
+      description: Optional FASTA file of predicted proteins in Prodigal format (>contigID_geneID). Skips the gene prediction step if provided.
+      pattern: "*.{fa,fasta,faa,fa.gz,fasta.gz,faa.gz}"
+  - checkm2_db:
+      type: file
+      description: Path to CheckM2 diamond database. If not provided, Binette will use the database set via checkm2 database command
+      pattern: "*.dmnd"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test', single_end:false ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - quality_reports:
+      type: file
+      description: TSV file containing quality information about the final selected bins
+      pattern: "*_final_bins_quality_reports.tsv"
+  - bins:
+      type: directory
+      description: Directory containing final selected bins in FASTA format (optional, depends on --write-fasta-bins setting)
+      pattern: "*_final_bins/"
+  - contig2bin:
+      type: file
+      description: Headerless TSV file mapping each contig to its assigned bin
+      pattern: "*_final_contig_to_bin.tsv"
+  - input_reports:
+      type: directory
+      description: Directory containing quality reports for input bin sets
+      pattern: "*_input_bins_quality_reports/"
+  - log:
+      type: file
+      description: Log file from Binette execution
+      pattern: "*.log"
+authors:
+  - "@your_username"
+maintainers:
+  - "@your_username"
