@@ -4,8 +4,8 @@ process BINETTE_BINETTE {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/binette:1.2.0--pyhdfd78af_0':
-        'quay.io/biocontainers/binette:1.2.0--pyhdfd78af_0' }"
+        'https://depot.galaxyproject.org/singularity/binette:1.1.2--pyh7e72e81_0':
+        'quay.io/biocontainers/binette:1.1.2--pyh7e72e81_0' }"
 
     input:
     tuple val(meta), path(contigs), path(bins), path(proteins)

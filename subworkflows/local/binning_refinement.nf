@@ -5,9 +5,10 @@
 include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_METABAT2 } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
 include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_MAXBIN2  } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
 include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_CONCOCT  } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
-include { DASTOOL_DASTOOL                                          } from '../../modules/nf-core/dastool/dastool/main.nf'
-include { RENAME_PREBINREFINE                                      } from '../../modules/local/rename/prebinrefine/main.nf'
-include { RENAME_POSTBINREFINE                                     } from '../../modules/local/rename/postbinrefine/main.nf'
+include { DASTOOL_DASTOOL                                         } from '../../modules/nf-core/dastool/dastool/main.nf'
+include { BINETTE_BINETTE                                         } from '../../modules/local/binette/binette/main.nf'
+include { RENAME_PREBINREFINE                                     } from '../../modules/local/rename/prebinrefine/main.nf'
+include { RENAME_POSTBINREFINE                                    } from '../../modules/local/rename/postbinrefine/main.nf'
 
 workflow BINNING_REFINEMENT {
     take:
