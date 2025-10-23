@@ -1,0 +1,97 @@
+nextflow_process {
+
+    name "Test Process BINETTE_BINETTE"
+    script "../main.nf"
+    process "BINETTE_BINETTE"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_nfcore"
+    tag "binette"
+    tag "binette/binette"
+
+    test("contig2bin_tables - simple test") {
+        
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', input_mode:'contig2bin_tables' ], // meta map
+                    file('${baseDir}/test_data/contigs.fasta'),
+                    [
+                        file('${baseDir}/test_data/tsv_method/metabat2_bins.tsv'),
+                        file('${baseDir}/test_data/tsv_method/maxbin2_bins.tsv')
+                    ],
+                    [] // no proteins file
+                ]
+                input[1] = [] // no checkm2 db (will use default)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            // Check key outputs exist
+            with(process.out.quality_reports) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*_final_bins_quality_reports\.tsv$/
+            }
+            with(process.out.contig2bin) {
+                assert size() == 1 
+                assert get(0).get(1) ==~ /.*_final_contig_to_bin\.tsv$/
+            }
+            with(process.out.input_reports) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*_input_bins_quality_reports\/$/
+            }
+            with(process.out.log) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*\.log$/
+            }
+        }
+
+    }
+
+    test("bin_dirs - simple test") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', input_mode:'bin_dirs' ], // meta map  
+                    file('${baseDir}/test_data/contigs.fasta'),
+                    [
+                        file('${baseDir}/test_data/bin_dirs_method/metabat2/'),
+                        file('${baseDir}/test_data/bin_dirs_method/maxbin2/')
+                    ],
+                    [] // no proteins file
+                ]
+                input[1] = [] // no checkm2 db (will use default)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            // Check key outputs exist
+            with(process.out.quality_reports) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*_final_bins_quality_reports\.tsv$/
+            }
+            with(process.out.contig2bin) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*_final_contig_to_bin\.tsv$/
+            }
+            with(process.out.input_reports) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*_input_bins_quality_reports\/$/
+            }
+            with(process.out.log) {
+                assert size() == 1
+                assert get(0).get(1) ==~ /.*\.log$/
+            }
+        }
+
+    }
+
+}
