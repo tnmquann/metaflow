@@ -14,7 +14,6 @@ process BINETTE_BINETTE {
     output:
     tuple val(meta), path("${prefix}_final_bins_quality_reports.tsv")              , emit: quality_reports
     tuple val(meta), path("${prefix}_final_bins/")                 , optional: true , emit: bins
-    tuple val(meta), path("${prefix}_final_contig_to_bin.tsv")                     , emit: contig2bin
     tuple val(meta), path("${prefix}_input_bins_quality_reports/")                 , emit: input_reports
     tuple val(meta), path("${prefix}.log")                                         , emit: log
     path "versions.yml"                                                            , emit: versions
@@ -50,18 +49,23 @@ process BINETTE_BINETTE {
         $checkm2_db_arg \\
         --threads $task.cpus \\
         --outdir ${prefix}_binette_output \\
-        --prefix $prefix \\
         $args \\
         2>&1 | tee ${prefix}.log
 
     # Move outputs to expected locations
     mv ${prefix}_binette_output/final_bins_quality_reports.tsv ${prefix}_final_bins_quality_reports.tsv
-    mv ${prefix}_binette_output/final_contig_to_bin.tsv ${prefix}_final_contig_to_bin.tsv
     mv ${prefix}_binette_output/input_bins_quality_reports ${prefix}_input_bins_quality_reports
     
     # Only move final_bins directory if it exists (depends on --write-fasta-bins setting)
     if [ -d "${prefix}_binette_output/final_bins" ]; then
         mv ${prefix}_binette_output/final_bins ${prefix}_final_bins
+        
+        # Rename all bin files to include prefix
+        cd ${prefix}_final_bins
+        for binfile in bin_*.fa; do
+            mv "\$binfile" "${prefix}-Refined-\$binfile"
+        done
+        cd ..
     fi
 
     cat <<-END_VERSIONS > versions.yml
