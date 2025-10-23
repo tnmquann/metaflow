@@ -9,6 +9,7 @@ include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund'
 include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
 include { BINNING } from '../subworkflows/local/binning'
+include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -93,10 +94,25 @@ workflow METAFLOW {
                 binning_versions_ch = BINNING_BAMABUND.out.versions ?: Channel.empty()
 
                 // Run BINNING with outputs from BINNING_BAMABUND
-                if (!params.skip_binning) {
+                if (!params.skip_binning && !params.skip_binning_bamabund) {
                     BINNING(all_assemblies, BINNING_BAMABUND.out.bam_bai)
                     binning_bins_ch = BINNING.out.all_bins ?: Channel.empty()
                     binning_versions_ch = binning_versions_ch.mix(BINNING.out.versions ?: Channel.empty())
+
+                    // Add binning refinement
+                    if (!params.skip_binning_refinement && params.refine_tool == 'dastool') {
+                        BINNING_REFINEMENT(all_assemblies, BINNING.out.all_bins)
+                        
+                        // Choose which bins to use for downstream analysis
+                        if (params.postbinning_input == 'refined_bins_only') {
+                            binning_bins_ch = BINNING_REFINEMENT.out.refined_bins
+                        } else if (params.postbinning_input == 'both') {
+                            binning_bins_ch = BINNING.out.all_bins.mix(BINNING_REFINEMENT.out.refined_bins)
+                        }
+                        // If 'raw_bins_only', keep original binning_bins_ch
+                        
+                        binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
+                    }
                 }
             }
         }
