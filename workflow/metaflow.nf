@@ -10,6 +10,7 @@ include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
 include { BINNING } from '../subworkflows/local/binning'
 include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement'
+include { BIN_QC } from '../subworkflows/local/bin_qc'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -73,6 +74,10 @@ workflow METAFLOW {
         def binning_bam_ch = Channel.empty()
         def binning_versions_ch = Channel.empty()
         def binning_bins_ch = Channel.empty()
+        def binqc_versions_ch = Channel.empty()
+        def binqc_summary_ch = Channel.empty()
+        def binqc_quast_summary_ch = Channel.empty()
+        def binqc_multiqc_ch = Channel.empty()
 
         if (params.enable_readbase) {
             READ_BASED(cleaned_reads_source)
@@ -118,6 +123,15 @@ workflow METAFLOW {
                         
                         binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
                     }
+
+                    if (!params.skip_binqc && !params.skip_binning) {
+                        BIN_QC(binning_bins_ch)
+                        binqc_versions_ch = BIN_QC.out.versions ?: Channel.empty()
+                        binqc_summary_ch = BIN_QC.out.qc_summary ?: Channel.empty()
+                        binqc_quast_summary_ch = BIN_QC.out.quast_summary ?: Channel.empty()
+                        binqc_multiqc_ch = BIN_QC.out.multiqc_files ?: Channel.empty()
+                        binning_versions_ch = binning_versions_ch.mix(binqc_versions_ch)
+                    }
                 }
             }
         }
@@ -152,4 +166,7 @@ workflow METAFLOW {
         assembly_metaspades_contigs = assembly_metaspades_contigs_ch.ifEmpty(null)
         binning_bam = binning_bam_ch.ifEmpty(null)
         binning_bins = binning_bins_ch.ifEmpty(null)
+        binqc_summary = binqc_summary_ch.ifEmpty(null)
+        binqc_quast_summary = binqc_quast_summary_ch.ifEmpty(null)
+        binqc_multiqc = binqc_multiqc_ch.ifEmpty(null)
 }
