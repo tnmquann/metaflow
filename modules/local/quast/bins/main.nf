@@ -1,5 +1,5 @@
 process QUAST_BINS {
-    tag "${meta.assembler}-${meta.binner}-${meta.domain}-${meta.refinement}-${meta.id}"
+    tag "${meta.assembler}-${meta.binner}-${meta.binrefine}-${meta.id}"
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -15,7 +15,7 @@ process QUAST_BINS {
     path "versions.yml"             , emit: versions
 
     script:
-    def prefix = task.ext.prefix ?: "${meta.assembler}-${meta.binner}-${meta.domain}-${meta.refinement}-${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.assembler}-${meta.binner}-${meta.binrefine}-${meta.id}"
     """
     BINS=\$(echo \"$bins\" | sed 's/[][]//g')
     IFS=', ' read -r -a bins <<< \"\$BINS\"
