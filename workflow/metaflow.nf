@@ -134,7 +134,9 @@ workflow METAFLOW {
                         binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
 
                         // Update binning_bins_ch based on postbinning_input
-                        if (params.postbinning_input == 'refined_bins_only') {
+                        if (params.postbinning_input == 'raw_bins_only') {
+                            binning_bins_ch = ch_raw_bins
+                        } else if (params.postbinning_input == 'refined_bins_only') {
                             binning_bins_ch = ch_refined_bins
                         } else if (params.postbinning_input == 'both') {
                             binning_bins_ch = ch_raw_bins.mix(ch_refined_bins)

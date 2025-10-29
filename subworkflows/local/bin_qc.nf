@@ -28,6 +28,7 @@ workflow BIN_QC {
     ch_bins // channel: [ val(meta), [path(bins)] ] - from BINNING and/or BINNING_REFINEMENT
 
     main:
+    ch_qc_summary = []
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
     ch_qc_summaries = Channel.empty()
@@ -120,14 +121,13 @@ workflow BIN_QC {
      */
 
     if (params.binqc_tool == "busco") {
-        // Transpose bins for individual processing - IMPORTANT!
-        // Each bin must be processed separately by BUSCO
+        // Transpose bins for individual processing
         ch_input_bins_for_qc = ch_bins
             .map { meta, bins ->
                 def bin_list = bins instanceof Collection ? bins.flatten() : [bins]
                 [meta, bin_list]
             }
-            .transpose() // Split each bin into separate channel item
+            .transpose()
 
         // Prepare database object depending on type
         if (ch_busco_db && ch_busco_db.extension in ['gz', 'tgz']) {
@@ -141,11 +141,9 @@ workflow BIN_QC {
         BUSCO_BUSCO(ch_input_bins_for_qc, 'genome', params.busco_db_lineage, ch_busco_db_for_process, [], params.busco_clean)
         ch_versions = ch_versions.mix(BUSCO_BUSCO.out.versions)
 
-        // Group batch summaries for concatenation
         ch_qc_summaries = BUSCO_BUSCO.out.batch_summary
-            .map { meta, summary -> [[id: 'busco'], summary] }
+            .map { _meta, summary -> [[id: 'busco'], summary] }
             .groupTuple()
-        
         ch_multiqc_files = ch_multiqc_files.mix(
             BUSCO_BUSCO.out.short_summaries_txt.map { it[1] }.flatten()
         )
@@ -195,24 +193,25 @@ workflow BIN_QC {
             CHECKM_QA.out.output.map { it[1] }.flatten()
         )
     } else if (params.binqc_tool == "checkm2") {
-        // Prepare bins for CheckM2 - stage all bins in input_bins directory
+        // Chuẩn bị bins cho CheckM2 - nhóm tất cả bins theo sample
         ch_bins_for_checkm2 = ch_bins
             .map { meta, bins ->
                 def bin_list = bins instanceof Collection ? bins.flatten() : [bins]
                 [meta, bin_list]
             }
 
-        // CHECKM2_PREDICT only takes 2 inputs: bins and database
+        // Chạy CHECKM2_PREDICT với bins và database
         CHECKM2_PREDICT(ch_bins_for_checkm2, ch_checkm2_db)
         ch_versions = ch_versions.mix(CHECKM2_PREDICT.out.versions)
 
+        // Gom kết quả cho multiqc và summary
         ch_qc_summaries = CHECKM2_PREDICT.out.checkm2_tsv
+            .map { _meta, summary -> [[id: 'checkm2'], summary] }
             .groupTuple()
         ch_multiqc_files = ch_multiqc_files.mix(
             CHECKM2_PREDICT.out.checkm2_tsv.map { meta, tsv -> tsv }
         )
     }
-
     /*
     ================================
      * Run GUNC for chimera detection (optional)
@@ -230,19 +229,30 @@ workflow BIN_QC {
         GUNC_RUN(ch_input_bins_for_gunc, ch_gunc_db)
         ch_versions = ch_versions.mix(GUNC_RUN.out.versions)
 
-        // Merge GUNC with CheckM/CheckM2 results if available
-        if (params.binqc_tool in ['checkm', 'checkm2']) {
-            ch_gunc_checkm_input = ch_qc_summaries
-                .join(GUNC_RUN.out.maxcsv_score.groupTuple())
+        // Make sure to keep directory in sync with modules.conf
+        GUNC_RUN.out.maxcss_level_tsv
+            .map { _meta, gunc_summary -> gunc_summary }
+            .collectFile(
+                name: "gunc_summary.tsv",
+                keepHeader: true,
+                storeDir: "${params.outdir}/Binning/QC/",
+            )
 
-            GUNC_MERGECHECKM(ch_gunc_checkm_input)
-            ch_versions = ch_versions.mix(GUNC_MERGECHECKM.out.versions)
-            ch_qc_summaries = GUNC_MERGECHECKM.out.merged_output
+        if (params.binqc_tool == 'checkm') {
+            ch_input_to_mergecheckm = GUNC_RUN.out.maxcss_level_tsv.combine(CHECKM_QA.out.output, by: 0)
+
+            GUNC_MERGECHECKM(ch_input_to_mergecheckm)
+            ch_versions.mix(GUNC_MERGECHECKM.out.versions)
+
+            // Make sure to keep directory in sync with modules.conf
+            GUNC_MERGECHECKM.out.tsv
+                .map { _meta, gunc_checkm_summary -> gunc_checkm_summary }
+                .collectFile(
+                    name: "gunc_checkm_summary.tsv",
+                    keepHeader: true,
+                    storeDir: "${params.outdir}/Binning/QC/",
+                )
         }
-
-        ch_multiqc_files = ch_multiqc_files.mix(
-            GUNC_RUN.out.maxcsv_score.map { meta, csv -> csv }
-        )
     }
 
     /*
