@@ -120,13 +120,14 @@ workflow BIN_QC {
      */
 
     if (params.binqc_tool == "busco") {
-        // Transpose bins for individual processing
+        // Transpose bins for individual processing - IMPORTANT!
+        // Each bin must be processed separately by BUSCO
         ch_input_bins_for_qc = ch_bins
             .map { meta, bins ->
                 def bin_list = bins instanceof Collection ? bins.flatten() : [bins]
                 [meta, bin_list]
             }
-            .transpose()
+            .transpose() // Split each bin into separate channel item
 
         // Prepare database object depending on type
         if (ch_busco_db && ch_busco_db.extension in ['gz', 'tgz']) {
@@ -140,10 +141,13 @@ workflow BIN_QC {
         BUSCO_BUSCO(ch_input_bins_for_qc, 'genome', params.busco_db_lineage, ch_busco_db_for_process, [], params.busco_clean)
         ch_versions = ch_versions.mix(BUSCO_BUSCO.out.versions)
 
+        // Group batch summaries for concatenation
         ch_qc_summaries = BUSCO_BUSCO.out.batch_summary
+            .map { meta, summary -> [[id: 'busco'], summary] }
             .groupTuple()
+        
         ch_multiqc_files = ch_multiqc_files.mix(
-            BUSCO_BUSCO.out.short_summaries_txt.map { meta, summary -> summary }
+            BUSCO_BUSCO.out.short_summaries_txt.map { it[1] }.flatten()
         )
     } else if (params.binqc_tool == "checkm") {
         // Prepare bins and decompress if needed
