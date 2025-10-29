@@ -17,6 +17,7 @@ include { GUNC_RUN                         } from '../../modules/nf-core/gunc/ru
 include { GUNC_MERGECHECKM                 } from '../../modules/nf-core/gunc/mergecheckm/main'
 include { UNTAR as BUSCO_UNTAR             } from '../../modules/nf-core/untar/main'
 include { UNTAR as CHECKM_UNTAR            } from '../../modules/nf-core/untar/main'
+include { GUNZIP                           } from '../../modules/nf-core/gunzip/main'
 
 // local modules
 include { QUAST_BINS                       } from '../../modules/local/quast/bins/main'
@@ -145,22 +146,50 @@ workflow BIN_QC {
             BUSCO_BUSCO.out.short_summaries_txt.map { meta, summary -> summary }
         )
     } else if (params.binqc_tool == "checkm") {
-        // Group bins by sample for CheckM
+        // Prepare bins and decompress if needed
         ch_bins_for_checkm = ch_bins
             .map { meta, bins ->
                 def bin_list = bins instanceof Collection ? bins.flatten() : [bins]
                 [meta, bin_list]
             }
+            .transpose()
+            .branch { meta, bin ->
+                compressed: bin.getName().endsWith('.gz')
+                uncompressed: true
+            }
 
-        CHECKM_LINEAGEWF(ch_bins_for_checkm, "fa", ch_checkm_db)
+        // Decompress gzipped bins
+        GUNZIP(ch_bins_for_checkm.compressed)
+        ch_versions = ch_versions.mix(GUNZIP.out.versions)
+
+        // Combine decompressed and already uncompressed bins
+        ch_bins_uncompressed = GUNZIP.out.gunzip
+            .mix(ch_bins_for_checkm.uncompressed)
+            .groupTuple()
+
+        // Run CheckM lineage workflow with uncompressed bins
+        CHECKM_LINEAGEWF(ch_bins_uncompressed, "fa", ch_checkm_db)
         ch_versions = ch_versions.mix(CHECKM_LINEAGEWF.out.versions)
 
-        CHECKM_QA(CHECKM_LINEAGEWF.out.checkm_output, "fa")
+        // Prepare input for CHECKM_QA by joining checkm_output and marker_file
+        ch_checkmqa_input = CHECKM_LINEAGEWF.out.checkm_output
+            .join(CHECKM_LINEAGEWF.out.marker_file)
+            .map { meta, dir, marker ->
+                [meta, dir, marker, ch_checkm_db ?: []]
+            }
+
+        // Run CheckM QA with checkm_db staged as coverage_file
+        CHECKM_QA(ch_checkmqa_input, [])
         ch_versions = ch_versions.mix(CHECKM_QA.out.versions)
 
+        // Prepare for concatenation - use a common ID for grouping all samples
         ch_qc_summaries = CHECKM_QA.out.output
+            .map { meta, summary -> [[id: 'checkm'], summary] }
             .groupTuple()
-        ch_multiqc_files = ch_multiqc_files.mix(CHECKM_QA.out.output.map { meta, tsv -> tsv })
+        
+        ch_multiqc_files = ch_multiqc_files.mix(
+            CHECKM_QA.out.output.map { it[1] }.flatten()
+        )
     } else if (params.binqc_tool == "checkm2") {
         // Prepare bins for CheckM2 - stage all bins in input_bins directory
         ch_bins_for_checkm2 = ch_bins
