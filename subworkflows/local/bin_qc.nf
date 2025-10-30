@@ -224,7 +224,7 @@ workflow BIN_QC {
                 def bin_list = bins instanceof Collection ? bins.flatten() : [bins]
                 [meta, bin_list]
             }
-            .transpose()
+           // .transpose()
 
         GUNC_RUN(ch_input_bins_for_gunc, ch_gunc_db)
         ch_versions = ch_versions.mix(GUNC_RUN.out.versions)
@@ -235,7 +235,7 @@ workflow BIN_QC {
             .collectFile(
                 name: "gunc_summary.tsv",
                 keepHeader: true,
-                storeDir: "${params.outdir}/Binning/QC/",
+                storeDir: "${params.outdir}/Binning/QC",
             )
 
         if (params.binqc_tool == 'checkm') {
@@ -250,7 +250,7 @@ workflow BIN_QC {
                 .collectFile(
                     name: "gunc_checkm_summary.tsv",
                     keepHeader: true,
-                    storeDir: "${params.outdir}/Binning/QC/",
+                    storeDir: "${params.outdir}/Binning/QC",
                 )
         }
     }
