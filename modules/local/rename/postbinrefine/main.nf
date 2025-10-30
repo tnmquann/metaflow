@@ -35,12 +35,6 @@ process RENAME_POSTBINREFINE {
         mv unbinned.fa "${meta.assembler}-${meta.binrefine}Unbinned-${meta.id}.fa"
     fi
 
-    if [[ -f bin_*.fa ]]; then
-        for binfile in "bin_*.fa"; do
-            mv "\$binfile" "${meta.assembler}-${meta.binrefine}-${meta.id}-Refined-\$binfile"
-        done
-    fi
-
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         coreutils: \$(echo \$(mv --version 2>&1) | sed 's/^.*(GNU coreutils) //; s/ Copyright.*\$//')

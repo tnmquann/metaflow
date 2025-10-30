@@ -56,6 +56,14 @@ process BINETTE_BINETTE {
     mv ${prefix}_binette_output/final_bins_quality_reports.tsv ${prefix}_final_bins_quality_reports.tsv
     mv ${prefix}_binette_output/input_bins_quality_reports ${prefix}_input_bins_quality_reports
     
+    for binfile in ${prefix}_binette_output/final_bins/bin_*.fa; do
+        [ -e "\$binfile" ] || continue
+        dir="\${binfile%/*}"
+        base="\${binfile##*/}"
+        prefix="${meta.assembler}-${meta.binrefine}-${meta.id}-Refined-"
+        [[ "\$base" == "\$prefix"* ]] && continue
+        mv -- "\$binfile" "\$dir/\$prefix\$base"
+    done
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
