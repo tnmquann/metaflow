@@ -11,7 +11,7 @@ process RENAME_POSTBINREFINE {
     tuple val(meta), path(bins)
 
     output:
-    tuple val(meta), path("${meta.assembler}-*Refined-${meta.id}.*.fa", includeInputs: true), optional: true, emit: refined_bins
+    tuple val(meta), path("${meta.assembler}-*Refined-*.fa", includeInputs: true), optional: true, emit: refined_bins
     tuple val(meta), path("${meta.assembler}-${meta.binrefine}Unbinned-${meta.id}.fa"), optional: true, emit: refined_unbins
     tuple val(meta), path("${meta.assembler}-${meta.id}-${meta.binrefine}-final_bins_quality_reports.tsv"), optional: true, emit: qc_reports
     tuple val(meta), path("${meta.assembler}-${meta.id}-${meta.binrefine}.log"), optional: true, emit: log_file

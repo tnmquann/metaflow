@@ -15,6 +15,11 @@
             "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
             "installed_by": ["modules"]
           },
+          "busco/busco": {
+            "branch": "master",
+            "git_sha": "36c6c8445284e021d95ce30cdf743baef66b21aa",
+            "installed_by": ["modules"]
+          },
           "bwamem2/index": {
             "branch": "master",
             "git_sha": "d86336f3e7ae0d5f76c67b0859409769cfeb2af2",
@@ -28,6 +33,26 @@
           "cat/fastq": {
             "branch": "master",
             "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
+            "installed_by": ["modules"]
+          },
+          "checkm/lineagewf": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
+          "checkm/qa": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
+          "checkm2/databasedownload": {
+            "branch": "master",
+            "git_sha": "bcba09053293bbc4fcfecbe094af6d0127f2e0ec",
+            "installed_by": ["modules"]
+          },
+          "checkm2/predict": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
             "installed_by": ["modules"]
           },
           "concoct/concoct": {
@@ -54,6 +79,11 @@
             "branch": "master",
             "git_sha": "ff39793aeff17b7ccb107424215898710b4aa424",
             "installed_by": ["fasta_binning_concoct"]
+          },
+          "csvtk/concat": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
           },
           "dastool/dastool": {
             "branch": "master",
@@ -83,6 +113,21 @@
           "genomad/endtoend": {
             "branch": "master",
             "git_sha": "ddb0d667cf6cdee3bab9497241de4bbf6b88d8cc",
+            "installed_by": ["modules"]
+          },
+          "gunc/downloaddb": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
+          "gunc/mergecheckm": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
+          "gunc/run": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
             "installed_by": ["modules"]
           },
           "gunzip": {
@@ -178,6 +223,11 @@
           "tiara/tiara": {
             "branch": "master",
             "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
+          "untar": {
+            "branch": "master",
+            "git_sha": "00ee87ebb541af0008596400ce6d5f66d79d5408",
             "installed_by": ["modules"]
           }
         }

@@ -10,6 +10,7 @@ include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
 include { BINNING } from '../subworkflows/local/binning'
 include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement'
+include { BIN_QC } from '../subworkflows/local/bin_qc'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -73,6 +74,10 @@ workflow METAFLOW {
         def binning_bam_ch = Channel.empty()
         def binning_versions_ch = Channel.empty()
         def binning_bins_ch = Channel.empty()
+        def binqc_versions_ch = Channel.empty()
+        def binqc_summary_ch = Channel.empty()
+        def binqc_quast_summary_ch = Channel.empty()
+        def binqc_multiqc_ch = Channel.empty()
 
         if (params.enable_readbase) {
             READ_BASED(cleaned_reads_source)
@@ -96,8 +101,20 @@ workflow METAFLOW {
                 // Run BINNING with outputs from BINNING_BAMABUND
                 if (!params.skip_binning && !params.skip_binning_bamabund) {
                     BINNING(all_assemblies, BINNING_BAMABUND.out.bam_bai)
-                    binning_bins_ch = BINNING.out.all_bins ?: Channel.empty()
                     binning_versions_ch = binning_versions_ch.mix(BINNING.out.versions ?: Channel.empty())
+
+                    // Initialize channels for raw bins
+                    def ch_raw_bins = BINNING.out.all_bins.map { meta, bin ->
+                        def meta_new = meta.clone()
+                        meta_new.refinement = 'unrefined'
+                        [meta_new, bin]
+                    }
+
+                    // Store raw bins for output
+                    binning_bins_ch = ch_raw_bins
+
+                    // Initialize refined bins channel
+                    def ch_refined_bins = Channel.empty()
 
                     // Add binning refinement
                     if (!params.skip_binning_refinement) {
@@ -108,15 +125,43 @@ workflow METAFLOW {
 
                         BINNING_REFINEMENT(all_assemblies, BINNING.out.all_bins)
                         
-                        // Choose which bins to use for downstream analysis based on postbinning_input
-                        if (params.postbinning_input == 'refined_bins_only') {
-                            binning_bins_ch = BINNING_REFINEMENT.out.refined_bins
-                        } else if (params.postbinning_input == 'both') {
-                            binning_bins_ch = BINNING.out.all_bins.mix(BINNING_REFINEMENT.out.refined_bins)
+                        ch_refined_bins = BINNING_REFINEMENT.out.refined_bins.map { meta, bin ->
+                            def meta_new = meta.clone()
+                            meta_new.refinement = 'refined'
+                            [meta_new, bin]
                         }
-                        // If 'raw_bins_only', keep original binning_bins_ch
                         
                         binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
+
+                        // Update binning_bins_ch based on postbinning_input
+                        if (params.postbinning_input == 'raw_bins_only') {
+                            binning_bins_ch = ch_raw_bins
+                        } else if (params.postbinning_input == 'refined_bins_only') {
+                            binning_bins_ch = ch_refined_bins
+                        } else if (params.postbinning_input == 'both') {
+                            binning_bins_ch = ch_raw_bins.mix(ch_refined_bins)
+                        }
+                        // If 'raw_bins_only', keep original binning_bins_ch
+                    }
+
+                    // Prepare input for BIN_QC by grouping bins
+                    if (!params.skip_binqc && !params.skip_binning) {
+                        // Group bins by meta (excluding bin-specific fields) for BIN_QC
+                        ch_bins_for_qc = binning_bins_ch
+                            .map { meta, bin ->
+                                // Create clean meta without bin_id for grouping
+                                def meta_clean = meta.clone()
+                                meta_clean.remove('bin_id')
+                                [meta_clean, bin]
+                            }
+                            .groupTuple()
+
+                        BIN_QC(ch_bins_for_qc)
+                        binqc_versions_ch = BIN_QC.out.versions ?: Channel.empty()
+                        binqc_summary_ch = BIN_QC.out.qc_summary ?: Channel.empty()
+                        binqc_quast_summary_ch = BIN_QC.out.quast_summary ?: Channel.empty()
+                        binqc_multiqc_ch = BIN_QC.out.multiqc_files ?: Channel.empty()
+                        binning_versions_ch = binning_versions_ch.mix(binqc_versions_ch)
                     }
                 }
             }
@@ -152,4 +197,7 @@ workflow METAFLOW {
         assembly_metaspades_contigs = assembly_metaspades_contigs_ch.ifEmpty(null)
         binning_bam = binning_bam_ch.ifEmpty(null)
         binning_bins = binning_bins_ch.ifEmpty(null)
+        binqc_summary = binqc_summary_ch.ifEmpty(null)
+        binqc_quast_summary = binqc_quast_summary_ch.ifEmpty(null)
+        binqc_multiqc = binqc_multiqc_ch.ifEmpty(null)
 }
