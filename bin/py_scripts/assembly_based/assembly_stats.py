@@ -8,13 +8,15 @@ __author__ = 'D.J.BERGER, Quan TNM'
 
 ###### Imports
 
-from Bio import SeqIO
-from Bio.Seq import Seq
 import argparse
 import csv
+import gzip
 import sys
-from pathlib import Path  # Added for better path handling
-from itertools import chain  # Added for chaining glob patterns
+from itertools import chain
+from pathlib import Path
+
+from Bio import SeqIO
+from Bio.Seq import Seq
 
 ###### Functions
 
@@ -26,11 +28,31 @@ def calculate_scaffold_stats(records: list) -> tuple:
     count = len(records)
     total_asm = sum(len(record.seq) for record in records)
     lengths = sorted([len(record.seq) for record in records], reverse=True)
-    gc_count = sum(record.seq.upper().count("G") + record.seq.upper().count("C") for record in records)
-    all_count = sum(record.seq.upper().count("G") + record.seq.upper().count("C") + record.seq.upper().count("T") + record.seq.upper().count("A") for record in records)
-    gc_cont = round((gc_count / all_count) * 100, 2) if all_count > 0 else 0.0  # Avoid division by zero
-    s_n50 = next((length for length in lengths if sum(lengths[:lengths.index(length) + 1]) >= total_asm * 0.5), None) if lengths else None
-    s_n90 = next((length for length in lengths if sum(lengths[:lengths.index(length) + 1]) >= total_asm * 0.9), None) if lengths else None
+    gc_count = sum(
+        record.seq.upper().count("G") + record.seq.upper().count("C")
+        for record in records
+    )
+    all_count = sum(
+        record.seq.upper().count("G") + record.seq.upper().count("C") +
+        record.seq.upper().count("T") + record.seq.upper().count("A")
+        for record in records
+    )
+    gc_cont = round((gc_count / all_count) * 100, 2) if all_count > 0 else 0.0
+    # Avoid division by zero
+    s_n50 = (
+        next(
+            (length for length in lengths
+             if sum(lengths[:lengths.index(length) + 1]) >= total_asm * 0.5),
+            None
+        ) if lengths else None
+    )
+    s_n90 = (
+        next(
+            (length for length in lengths
+             if sum(lengths[:lengths.index(length) + 1]) >= total_asm * 0.9),
+            None
+        ) if lengths else None
+    )
     gap_sum = sum(record.seq.count("N") for record in records)
     gap_perc = round((gap_sum / total_asm) * 100, 2) if total_asm > 0 else 0.0
     return count, s_n50, gap_sum, total_asm, s_n90, gc_cont, gap_perc
@@ -54,25 +76,64 @@ def calculate_contig_stats(records: list, gap_size: int) -> tuple:
     c_count = len(contig_lengths)
     contig_lengths.sort(reverse=True)
     total_len = sum(contig_lengths)
-    c_n50 = next((length for length in contig_lengths if sum(contig_lengths[:contig_lengths.index(length) + 1]) >= total_len * 0.5), None) if contig_lengths else None
-    c_n90 = next((length for length in contig_lengths if sum(contig_lengths[:contig_lengths.index(length) + 1]) >= total_len * 0.9), None) if contig_lengths else None
+    c_n50 = (
+        next(
+            (length for length in contig_lengths
+             if sum(contig_lengths[:contig_lengths.index(length) + 1]) >= total_len * 0.5),
+            None
+        ) if contig_lengths else None
+    )
+    c_n90 = (
+        next(
+            (length for length in contig_lengths
+             if sum(contig_lengths[:contig_lengths.index(length) + 1]) >= total_len * 0.9),
+            None
+        ) if contig_lengths else None
+    )
     return c_count, c_n50, gap_count, c_n90
 
 # Write results to csv file
-def write_stats_to_file(fasta_name: str, count: int, s_n50, c_count: int, c_n50, gap_count: int, gap_sum: int, total_asm: int, s_n90, c_n90, gc_cont: float, gap_perc: float, csvfile):
-    sampleid = fasta_name.split(".")[0]
-    binid = fasta_name.split(".")[1] if len(fasta_name.split(".")) > 1 else ""
+def write_stats_to_file(
+    bin_name: str,
+    count: int,
+    s_n50,
+    c_count: int,
+    c_n50,
+    gap_count: int,
+    gap_sum: int,
+    total_asm: int,
+    s_n90,
+    c_n90,
+    gc_cont: float,
+    gap_perc: float,
+    csvfile
+):
     writer = csv.writer(csvfile)
-    writer.writerow([sampleid, binid, total_asm, count, s_n50, s_n90, c_count, c_n50, c_n90, gc_cont, gap_count, gap_sum, gap_perc])
+    writer.writerow([
+        bin_name, total_asm, count, s_n50, s_n90, c_count, c_n50, c_n90,
+        gc_cont, gap_count, gap_sum, gap_perc
+    ])
 
 # Parse arguments from the command line.
 def parse_args():
-    description = 'Calculates assembly statistics for each assembled genome in a directory. Version: %s, Date: %s, Author: %s' % (__version__, __date__, __author__)
+    description = (
+        f'Calculates assembly statistics for each assembled genome in a directory. '
+        f'Version: {__version__}, Date: {__date__}, Author: {__author__}'
+    )
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('--fasta_dir', required=True, help='Directory containing FASTA files')
-    parser.add_argument('--gap', type=int, default=2, help="Minimum gap length to be considered a scaffold [2]")
-    parser.add_argument('--output', default="sample", help="Output file prefix ['sample']")
-    parser.add_argument("--version", action="version", version='Version: %s' % (__version__))
+    parser.add_argument(
+        '--fasta_dir', required=True, help='Directory containing FASTA files'
+    )
+    parser.add_argument(
+        '--gap', type=int, default=2,
+        help="Minimum gap length to be considered a scaffold [2]"
+    )
+    parser.add_argument(
+        '--output', default="sample", help="Output file prefix ['sample']"
+    )
+    parser.add_argument(
+        "--version", action="version", version=f'Version: {__version__}'
+    )
     return parser.parse_args()
 
 ###### Main
@@ -81,23 +142,45 @@ def main():
     fasta_dir = Path(args.fasta_dir)
     if not fasta_dir.is_dir():
         sys.exit(f"Error: {fasta_dir} is not a valid directory.")
-    
+
     with open(f"{args.output}.assembly_stats.csv", 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["sampleid", "bin", "assembly_length_bp", "scaffold_count", "scaffold_N50_bp", "scaffold_N90_bp", "contig_count", "contig_N50_bp", "contig_N90_bp", "GC_perc", "gaps_count", "gaps_sum_bp", "gaps_perc"])
+        writer.writerow([
+            "bin_name", "assembly_length_bp", "scaffold_count", "scaffold_N50_bp",
+            "scaffold_N90_bp", "contig_count", "contig_N50_bp", "contig_N90_bp",
+            "GC_perc", "gaps_count", "gaps_sum_bp", "gaps_perc"
+        ])
 
-        # Find and process FASTA files (supporting .fasta, .fa, .fq extensions)
-        for file_path in chain(fasta_dir.glob("*.fasta"), fasta_dir.glob("*.fa"), fasta_dir.glob("*.fna")):
-            try:
-                records = list(SeqIO.parse(file_path, "fasta"))
-                if not records:
-                    print(f"Warning: No records in {file_path.name}. Skipping.")
-                    continue
-                count, s_n50, gap_sum, total_asm, s_n90, gc_cont, gap_perc = calculate_scaffold_stats(records)
-                c_count, c_n50, gap_count, c_n90 = calculate_contig_stats(records, args.gap)
-                write_stats_to_file(file_path.name, count, s_n50, c_count, c_n50, gap_count, gap_sum, total_asm, s_n90, c_n90, gc_cont, gap_perc, csvfile)
-            except Exception as e:
-                print(f"Error processing {file_path.name}: {e}. Skipping.")
+        # Find and process FASTA files (supporting .fasta, .fa, .fna, and their .gz variants)
+        fasta_patterns = [
+            "*.fasta", "*.fa", "*.fna", "*.fasta.gz", "*.fa.gz", "*.fna.gz"
+        ]
+        for pattern in fasta_patterns:
+            for file_path in fasta_dir.glob(pattern):
+                try:
+                    # Extract bin_name as the filename without extensions
+                    bin_name = Path(file_path.stem).stem
+                    # Parse records, handling gzipped files
+                    if str(file_path).endswith('.gz'):
+                        with gzip.open(file_path, 'rt') as f:
+                            records = list(SeqIO.parse(f, "fasta"))
+                    else:
+                        records = list(SeqIO.parse(file_path, "fasta"))
+                    if not records:
+                        print(f"Warning: No records in {file_path.name}. Skipping.")
+                        continue
+                    count, s_n50, gap_sum, total_asm, s_n90, gc_cont, gap_perc = (
+                        calculate_scaffold_stats(records)
+                    )
+                    c_count, c_n50, gap_count, c_n90 = (
+                        calculate_contig_stats(records, args.gap)
+                    )
+                    write_stats_to_file(
+                        bin_name, count, s_n50, c_count, c_n50, gap_count,
+                        gap_sum, total_asm, s_n90, c_n90, gc_cont, gap_perc, csvfile
+                    )
+                except Exception as e:
+                    print(f"Error processing {file_path.name}: {e}. Skipping.")
 
 if __name__ == "__main__":
     main()

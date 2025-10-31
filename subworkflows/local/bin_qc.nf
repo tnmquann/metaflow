@@ -22,6 +22,7 @@ include { GUNZIP                           } from '../../modules/nf-core/gunzip/
 // local modules
 include { QUAST_BINS                       } from '../../modules/local/quast/bins/main'
 include { QUAST_BINS_SUMMARY               } from '../../modules/local/quast/binssummary/main'
+include { ASSEMBLY_STATS } from '../../modules/local/finalize/assemblybased/assembly_stats'
 
 workflow BIN_QC {
     take:
@@ -114,6 +115,8 @@ workflow BIN_QC {
     QUAST_BINS_SUMMARY(QUAST_BINS.out.quast_bin_summaries.map { it[1] }.collect())
     ch_versions = ch_versions.mix(QUAST_BINS_SUMMARY.out.versions)
 
+    ASSEMBLY_STATS(ch_bins_for_quast)
+    ch_versions = ch_versions.mix(ASSEMBLY_STATS.out.versions)
     /*
     ================================
      * Run QC tools based on binqc_tool parameter
