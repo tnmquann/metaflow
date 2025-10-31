@@ -105,7 +105,7 @@ workflow BIN_QC {
 
     /*
     ================================
-     * Run QUAST on bins
+     * Run QUAST & Asselbly statistics on bins
     ================================
      */
 
