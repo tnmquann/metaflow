@@ -11,6 +11,7 @@ include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_p
 include { BINNING } from '../subworkflows/local/binning'
 include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement'
 include { BIN_QC } from '../subworkflows/local/bin_qc'
+include { DOMAIN_CLASSIFICATION } from '../subworkflows/local/domain_classification'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -103,37 +104,101 @@ workflow METAFLOW {
                     BINNING(all_assemblies, BINNING_BAMABUND.out.bam_bai)
                     binning_versions_ch = binning_versions_ch.mix(BINNING.out.versions ?: Channel.empty())
 
-                    // Initialize channels for raw bins
+                    // Initialize channels for raw bins with metadata
                     def ch_raw_bins = BINNING.out.all_bins.map { meta, bin ->
                         def meta_new = meta.clone()
                         meta_new.refinement = 'unrefined'
                         [meta_new, bin]
                     }
 
-                    // Store raw bins for output
-                    binning_bins_ch = ch_raw_bins
+                    // ============================================
+                    // FIX: Run DOMAIN_CLASSIFICATION BEFORE refinement
+                    // ============================================
+                    if (params.bin_domain_classification) {
+                        // Group raw bins by assembly for domain classification
+                        ch_bins_for_classification = ch_raw_bins
+                            .map { meta, bin ->
+                                def meta_clean = meta.clone()
+                                meta_clean.remove('bin_id')
+                                def group_key = "${meta_clean.id}_${meta_clean.assembler}"
+                                [group_key, meta_clean, bin]
+                            }
+                            .groupTuple(by: 0)
+                            .map { key, metas, bins ->
+                                [metas[0], bins.flatten()]
+                            }
 
-                    // Initialize refined bins channel
+                        DOMAIN_CLASSIFICATION(all_assemblies, ch_bins_for_classification)
+                        binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION.out.versions)
+
+                        // Add domain metadata to raw bins
+                        ch_domain_map = DOMAIN_CLASSIFICATION.out.classified_bins
+                            .map { meta, bin ->
+                                def bin_basename = bin.baseName
+                                [bin_basename, meta.domain]
+                            }
+
+                        ch_raw_bins = ch_raw_bins
+                            .map { meta, bin ->
+                                def bin_basename = bin.baseName
+                                [bin_basename, meta, bin]
+                            }
+                            .join(ch_domain_map, by: 0, remainder: true)
+                            .map { bin_basename, meta, bin, domain ->
+                                def meta_new = meta.clone()
+                                meta_new.domain = domain ?: 'unclassified'
+                                [meta_new, bin]
+                            }
+                    }
+
+                    // ============================================
+                    // Run BINNING_REFINEMENT (with domain already set)
+                    // ============================================
                     def ch_refined_bins = Channel.empty()
 
-                    // Add binning refinement
                     if (!params.skip_binning_refinement) {
-                        // Run BINNING_REFINEMENT with selected tool (dastool or binette)
                         if (!params.checkm2_db && params.refine_tool == 'binette') {
                             error "CheckM2 database path must be provided for Binette refinement. Please set params.checkm2_db"
                         }
 
-                        BINNING_REFINEMENT(all_assemblies, BINNING.out.all_bins)
+                        // Group bins for refinement (remove domain to group all together)
+                        ch_bins_for_refinement = ch_raw_bins
+                            .map { meta, bin ->
+                                def meta_clean = meta.clone()
+                                meta_clean.remove('domain')
+                                meta_clean.remove('bin_id')
+                                [meta_clean, bin]
+                            }
+                            .groupTuple()
+
+                        BINNING_REFINEMENT(all_assemblies, ch_bins_for_refinement)
                         
                         ch_refined_bins = BINNING_REFINEMENT.out.refined_bins.map { meta, bin ->
                             def meta_new = meta.clone()
                             meta_new.refinement = 'refined'
                             [meta_new, bin]
                         }
+
+                        // Re-add domain metadata to refined bins
+                        if (params.bin_domain_classification) {
+                            ch_refined_bins = ch_refined_bins
+                                .map { meta, bin ->
+                                    def bin_basename = bin.baseName
+                                    [bin_basename, meta, bin]
+                                }
+                                .join(ch_domain_map, by: 0, remainder: true)
+                                .map { bin_basename, meta, bin, domain ->
+                                    def meta_new = meta.clone()
+                                    meta_new.domain = domain ?: 'unclassified'
+                                    [meta_new, bin]
+                                }
+                        }
                         
                         binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
+                    }
 
-                        // Update binning_bins_ch based on postbinning_input
+                    // Determine input for post-binning steps
+                    if (!params.skip_binning_refinement) {
                         if (params.postbinning_input == 'raw_bins_only') {
                             binning_bins_ch = ch_raw_bins
                         } else if (params.postbinning_input == 'refined_bins_only') {
@@ -141,17 +206,18 @@ workflow METAFLOW {
                         } else if (params.postbinning_input == 'both') {
                             binning_bins_ch = ch_raw_bins.mix(ch_refined_bins)
                         }
-                        // If 'raw_bins_only', keep original binning_bins_ch
+                    } else {
+                        binning_bins_ch = ch_raw_bins
                     }
 
-                    // Prepare input for BIN_QC by grouping bins
+                    // Prepare input for BIN_QC
                     if (!params.skip_binqc && !params.skip_binning) {
-                        // Group bins by meta (excluding bin-specific fields) for BIN_QC
+                        // Group bins for QC
                         ch_bins_for_qc = binning_bins_ch
                             .map { meta, bin ->
-                                // Create clean meta without bin_id for grouping
                                 def meta_clean = meta.clone()
                                 meta_clean.remove('bin_id')
+                                meta_clean.remove('domain')
                                 [meta_clean, bin]
                             }
                             .groupTuple()
