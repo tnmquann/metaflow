@@ -12,6 +12,8 @@ include { BINNING } from '../subworkflows/local/binning'
 include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement'
 include { BIN_QC } from '../subworkflows/local/bin_qc'
 include { DOMAIN_CLASSIFICATION } from '../subworkflows/local/domain_classification'
+include { BIN_ANNOTATION } from '../subworkflows/local/bin_annotation'
+include { BIN_CLASSIFICATION } from '../subworkflows/local/bin_classification'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -79,6 +81,10 @@ workflow METAFLOW {
         def binqc_summary_ch = Channel.empty()
         def binqc_quast_summary_ch = Channel.empty()
         def binqc_multiqc_ch = Channel.empty()
+        def binannotation_versions_ch = Channel.empty()
+        def binannotation_multiqc_ch = Channel.empty()
+        def binclassification_versions_ch = Channel.empty()
+        def binclassification_summary_ch = Channel.empty()
 
         if (params.enable_readbase) {
             READ_BASED(cleaned_reads_source)
@@ -173,11 +179,17 @@ workflow METAFLOW {
 
                         BINNING_REFINEMENT(all_assemblies, ch_bins_for_refinement)
                         
-                        ch_refined_bins = BINNING_REFINEMENT.out.refined_bins.map { meta, bin ->
-                            def meta_new = meta.clone()
-                            meta_new.refinement = 'refined'
-                            [meta_new, bin]
-                        }
+                        // IMPORTANT: BINNING_REFINEMENT outputs are GROUPED bins, not individual bins
+                        // We need to transpose them to match the raw bins channel format
+                        ch_refined_bins = BINNING_REFINEMENT.out.refined_bins
+                            .transpose()  // Add transpose here to get individual bins
+                            .map { meta, bin ->
+                                def meta_new = meta.clone()
+                                meta_new.refinement = 'refined'
+                                meta_new.bin_id = bin.baseName
+                                // binrefine is already set by BINNING_REFINEMENT (DASTool or Binette)
+                                [meta_new, bin]
+                            }
 
                         // Re-add domain metadata to refined bins
                         if (params.bin_domain_classification) {
@@ -204,16 +216,25 @@ workflow METAFLOW {
                         } else if (params.postbinning_input == 'refined_bins_only') {
                             binning_bins_ch = ch_refined_bins
                         } else if (params.postbinning_input == 'both') {
+                            // Both channels now have the same structure: [meta, single_bin]
                             binning_bins_ch = ch_raw_bins.mix(ch_refined_bins)
                         }
                     } else {
                         binning_bins_ch = ch_raw_bins
                     }
 
-                    // Prepare input for BIN_QC
+                    // Use multiMap to create separate channels for BIN_QC, BIN_ANNOTATION, and BIN_CLASSIFICATION
+                    // This prevents channel consumption issues when processes run in parallel
+                    ch_bins_split = binning_bins_ch
+                        .multiMap { meta, bin ->
+                            for_qc: [meta, bin]
+                            for_annotation: [meta, bin]
+                            for_classification: [meta, bin]
+                        }
+
+                    // Prepare input for BIN_QC - group bins
                     if (!params.skip_binqc && !params.skip_binning) {
-                        // Group bins for QC
-                        ch_bins_for_qc = binning_bins_ch
+                        ch_bins_for_qc = ch_bins_split.for_qc
                             .map { meta, bin ->
                                 def meta_clean = meta.clone()
                                 meta_clean.remove('bin_id')
@@ -228,6 +249,26 @@ workflow METAFLOW {
                         binqc_quast_summary_ch = BIN_QC.out.quast_summary ?: Channel.empty()
                         binqc_multiqc_ch = BIN_QC.out.multiqc_files ?: Channel.empty()
                         binning_versions_ch = binning_versions_ch.mix(binqc_versions_ch)
+                    }
+
+                    // Run BIN_ANNOTATION in parallel with BIN_QC
+                    if (!params.skip_bin_annotation && !params.skip_binning) {
+                        ch_bins_for_annotation = ch_bins_split.for_annotation
+
+                        BIN_ANNOTATION(ch_bins_for_annotation)
+                        binannotation_versions_ch = BIN_ANNOTATION.out.versions ?: Channel.empty()
+                        binannotation_multiqc_ch = BIN_ANNOTATION.out.multiqc_files ?: Channel.empty()
+                        binning_versions_ch = binning_versions_ch.mix(binannotation_versions_ch)
+                    }
+
+                    // Run BIN_CLASSIFICATION in parallel with BIN_QC and BIN_ANNOTATION
+                    if (!params.skip_bin_classification && !params.skip_binning) {
+                        ch_bins_for_classification = ch_bins_split.for_classification
+
+                        BIN_CLASSIFICATION(ch_bins_for_classification)
+                        binclassification_versions_ch = BIN_CLASSIFICATION.out.versions ?: Channel.empty()
+                        binclassification_summary_ch = BIN_CLASSIFICATION.out.genome_classification ?: Channel.empty()
+                        binning_versions_ch = binning_versions_ch.mix(binclassification_versions_ch)
                     }
                 }
             }
@@ -266,4 +307,6 @@ workflow METAFLOW {
         binqc_summary = binqc_summary_ch.ifEmpty(null)
         binqc_quast_summary = binqc_quast_summary_ch.ifEmpty(null)
         binqc_multiqc = binqc_multiqc_ch.ifEmpty(null)
+        binannotation_multiqc = binannotation_multiqc_ch.ifEmpty(null)
+        binclassification_summary = binclassification_summary_ch.ifEmpty(null)
 }

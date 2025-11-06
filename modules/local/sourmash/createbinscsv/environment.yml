@@ -1,0 +1,6 @@
+name: create_bins_csv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - coreutils=9.1
