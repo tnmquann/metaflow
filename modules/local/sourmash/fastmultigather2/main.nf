@@ -1,5 +1,5 @@
 process SOURMASH_FASTMULTIGATHER {
-    tag "Running on ${manysketch_zip}"
+    tag "${manysketch_zip}"
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"

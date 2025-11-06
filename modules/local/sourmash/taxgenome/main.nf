@@ -1,5 +1,5 @@
 process SOURMASH_TAXGENOME {
-    tag "Running sourmash tax genome on ${gather_csv.baseName}"
+    tag "${meta.id}"
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"

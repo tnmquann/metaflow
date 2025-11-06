@@ -1,5 +1,5 @@
 process COMBINE_FASTMULTIGATHER_RESULTS {
-    tag "Combining ${gather_csvs.size()} result files for ${meta.id}"
+    tag "Combining ${gather_csvs.size()} files for ${meta.id}"
     label 'process_low'
 
     conda "coreutils=9.1"
@@ -37,14 +37,6 @@ process COMBINE_FASTMULTIGATHER_RESULTS {
     # Count total matches
     total_matches=\$(tail -n +2 ${prefix}_combined_sourmash_gather.csv | wc -l)
     echo "Total matches combined: \${total_matches}"
-    
-    # Optional: Sort by f_unique_weighted (column 16) in descending order
-    if [ \${total_matches} -gt 0 ]; then
-        head -n 1 ${prefix}_combined_sourmash_gather.csv > temp_header.csv
-        tail -n +2 ${prefix}_combined_sourmash_gather.csv | sort -t',' -k16 -gr > temp_sorted.csv 2>/dev/null || tail -n +2 ${prefix}_combined_sourmash_gather.csv > temp_sorted.csv
-        cat temp_header.csv temp_sorted.csv > ${prefix}_combined_sourmash_gather.csv
-        rm -f temp_header.csv temp_sorted.csv
-    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

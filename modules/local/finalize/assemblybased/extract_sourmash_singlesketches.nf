@@ -1,5 +1,5 @@
 process EXTRACT_SOURMASH_SINGLESKETCHES {
-    tag "Extracting single sketches from ${sketch_zip}"
+    tag "${sketch_zip}"
     label 'process_low'
 
     conda "pandas=2.2.3"
