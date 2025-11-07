@@ -46,6 +46,11 @@ process VAMB_BIN {
 
     find ${prefix}/bins -name "*.fna" -exec gzip {} \\;
 
+    # avoid file name collisions
+    for filename in ${prefix}/bins/*.fna.gz; do
+        mv "\${filename}" "${prefix}/bins/${prefix}.\$(basename \${filename})"
+    done
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         vamb: \$(vamb --version | sed 's/Vamb //')
@@ -61,8 +66,8 @@ process VAMB_BIN {
     """
     mkdir -p ${prefix}/bins
 
-    echo "" | gzip > ${prefix}/bins/1.fna.gz
-    echo "" | gzip > ${prefix}/bins/2.fna.gz
+    echo "" | gzip > ${prefix}/bins/${prefix}.1.fna.gz
+    echo "" | gzip > ${prefix}/bins/${prefix}.2.fna.gz
 
     touch ${prefix}/results_taxometer.tsv
     touch ${prefix}/predictor_model.pt

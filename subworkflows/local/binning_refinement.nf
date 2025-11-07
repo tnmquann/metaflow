@@ -5,6 +5,9 @@ nextflow.enable.dsl = 2
 include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_METABAT2 } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
 include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_MAXBIN2  } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
 include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_CONCOCT  } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
+include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_COMEBIN  } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
+include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_SEMIBIN  } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
+include { DASTOOL_FASTATOCONTIG2BIN as FASTATOCONTIG2BIN_VAMB     } from '../../modules/nf-core/dastool/fastatocontig2bin/main.nf'
 include { DASTOOL_DASTOOL                                         } from '../../modules/nf-core/dastool/dastool/main.nf'
 include { BINETTE_BINETTE                                         } from '../../modules/local/binette/binette/main.nf'
 include { RENAME_PREBINREFINE                                     } from '../../modules/local/rename/prebinrefine/main.nf'
@@ -39,12 +42,18 @@ workflow BINNING_REFINEMENT {
             metabat2: it[0].binner == 'MetaBAT2'
             maxbin2:  it[0].binner == 'MaxBin2'
             concoct:  it[0].binner == 'CONCOCT'
+            comebin:  it[0].binner == 'COMEBin'
+            semibin:  it[0].binner == 'SemiBin2'
+            vamb:     it[0].binner == 'VAMB'
         }
 
     // Generate contig2bin tables for each binner
     FASTATOCONTIG2BIN_METABAT2(ch_renamed_bins.metabat2, "fa")
     FASTATOCONTIG2BIN_MAXBIN2(ch_renamed_bins.maxbin2, "fa")
     FASTATOCONTIG2BIN_CONCOCT(ch_renamed_bins.concoct, "fa")
+    FASTATOCONTIG2BIN_COMEBIN(ch_renamed_bins.comebin, "fa")
+    FASTATOCONTIG2BIN_SEMIBIN(ch_renamed_bins.semibin, "fa")
+    FASTATOCONTIG2BIN_VAMB(ch_renamed_bins.vamb, "fa")
 
     ch_versions = ch_versions.mix(FASTATOCONTIG2BIN_METABAT2.out.versions.first())
 
@@ -54,6 +63,9 @@ workflow BINNING_REFINEMENT {
         .mix(FASTATOCONTIG2BIN_METABAT2.out.fastatocontig2bin)
         .mix(FASTATOCONTIG2BIN_MAXBIN2.out.fastatocontig2bin)
         .mix(FASTATOCONTIG2BIN_CONCOCT.out.fastatocontig2bin)
+        .mix(FASTATOCONTIG2BIN_COMEBIN.out.fastatocontig2bin)
+        .mix(FASTATOCONTIG2BIN_SEMIBIN.out.fastatocontig2bin)
+        .mix(FASTATOCONTIG2BIN_VAMB.out.fastatocontig2bin)
         .map { meta, fastatocontig2bin ->
             def meta_clean = meta.clone()
             meta_clean.remove('binner')
@@ -98,28 +110,22 @@ workflow BINNING_REFINEMENT {
         // Prepare input for Binette
         ch_input_for_binette = assemblies
             .map { meta, assembly -> 
-                // Create key using id and assembler for joining
                 def key = "${meta.id}_${meta.assembler}"
                 [key, meta, assembly] 
             }
             .join(
                 ch_fastatocontig2bin.map { meta, files ->
-                    // Create matching key for joining
                     def key = "${meta.id}_${meta.assembler}"
                     [key, files]
                 }
             )
             .map { key, meta, assembly, contig2bin_files ->
-                // Prepare meta with required info
                 def meta_new = meta.clone()
                 meta_new.binrefine = 'Binette'
-                meta_new.input_mode = 'contig2bin_tables'  // Add this to specify input mode
-                // Return tuple matching process input requirements:
-                // tuple val(meta), path(contigs), path(bins), path(proteins)
-                [meta_new, assembly, contig2bin_files, []]  // Empty list for proteins as it's optional
+                meta_new.input_mode = 'contig2bin_tables'
+                [meta_new, assembly, contig2bin_files, []]
             }
 
-        // Run Binette with proper input structure
         BINETTE_BINETTE(
             ch_input_for_binette,
             file(params.checkm2_db)

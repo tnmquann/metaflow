@@ -1,20 +1,24 @@
 process EXTRACT_SOURMASH_SINGLESKETCHES {
-    tag "${sketch_zip}"
+    tag "${meta.id}"
     label 'process_low'
 
     conda "pandas=2.2.3"
 
     input:
-    path sketch_zip
+    tuple val(meta), path(sketch_zip)
     val ksize
 
     output:
-    path "manysketch_output"                         , emit: manysketch_dir
-    path "manysketch_output/zip_files"              , emit: zip_files_dir
-    path "versions.yml"                             , emit: versions
+    tuple val(meta), path("manysketch_output")                  , emit: manysketch_dir, optional: true
+    tuple val(meta), path("manysketch_output/zip_files/*.sig.zip"), emit: sig_zip_files, optional: true
+    path "versions.yml"                                         , emit: versions
+
+    when:
+    task.ext.when == null || task.ext.when
 
     script:
     def args_python = task.ext.args_python ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     # Create directories
     mkdir -p manysketch_output/zip_files
@@ -39,9 +43,10 @@ process EXTRACT_SOURMASH_SINGLESKETCHES {
     """
 
     stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     mkdir -p manysketch_output/zip_files
-    touch manysketch_output/zip_files/test_${ksize}.sig.zip
+    touch manysketch_output/zip_files/${prefix}_test_${ksize}.sig.zip
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

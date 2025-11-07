@@ -59,7 +59,7 @@ workflow BIN_CLASSIFICATION {
 
     // Step 2b: Extract single sketches from the batch sketch zip
     EXTRACT_SOURMASH_SINGLESKETCHES(
-        SOURMASH_MANYSKETCH_BINS.out.sketch_zip_file.map { meta, zip -> zip },
+        SOURMASH_MANYSKETCH_BINS.out.sketch_zip_file,  // Now passes [meta, zip] tuple
         params.sourmash_ksize_bins
     )
     ch_versions = ch_versions.mix(EXTRACT_SOURMASH_SINGLESKETCHES.out.versions)
@@ -136,7 +136,7 @@ workflow BIN_CLASSIFICATION {
     bins_csv            = CREATE_BINS_CSV.out.bins_csv
     sketch_zip          = SOURMASH_MANYSKETCH_BINS.out.sketch_zip_file
     single_sketches_dir = EXTRACT_SOURMASH_SINGLESKETCHES.out.manysketch_dir
-    single_sketches_zip = EXTRACT_SOURMASH_SINGLESKETCHES.out.zip_files_dir
+    single_sketches_zip = EXTRACT_SOURMASH_SINGLESKETCHES.out.sig_zip_files
     gather_csv          = ch_final_gather_csv
     annotated_csv       = SOURMASH_TAXANNOTATE.out.result
     genome_classification = SOURMASH_TAXGENOME.out.genome_classification
