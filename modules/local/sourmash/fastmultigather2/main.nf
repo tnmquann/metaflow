@@ -13,7 +13,7 @@ process SOURMASH_FASTMULTIGATHER {
     path "versions.yml", emit: versions
 
     script:
-    def prefix = task.ext.prefix ?: "fastmultigather_results"
+    def prefix = task.ext.prefix ?: "${meta.assembler}-${meta.binner ?: 'binrefine'}-${meta.binrefine ?: 'rawbins'}-${meta.id}"
     def args = task.ext.args ?: '--threshold-bp=50000'
     """
     sourmash scripts fastmultigather \\
@@ -27,7 +27,7 @@ process SOURMASH_FASTMULTIGATHER {
     mkdir -p fastmultigather
     mv ${prefix}_sourmash_gather_withrocksdb.csv fastmultigather/${prefix}_sourmash_gather.csv
 
-    # Extract no match bins (replicating bash script functionality)
+    # Extract no match bins
     if [ -f fastmultigather.log ]; then
         grep "No matches to" fastmultigather.log | awk -F"'" '{print \$2}' > fastmultigather/no_match_bins.txt || touch fastmultigather/no_match_bins.txt
         mv fastmultigather.log fastmultigather/

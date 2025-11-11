@@ -5,7 +5,7 @@ process SOURMASH_TAXGENOME {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(meta), path(gather_csv)
+    tuple val(meta), path(taxannotate_csv_gz)
     path sourmash_taxonomy_csv
 
     output:
@@ -17,14 +17,24 @@ process SOURMASH_TAXGENOME {
     def args = task.ext.args ?: ''
     def output_format = params.sourmash_output_format ?: 'csv_summary'
     """
+    # Decompress the input file first
+    gunzip -c ${taxannotate_csv_gz} > gather_with_lineages.csv
+    
     mkdir -p taxgenome
     sourmash tax genome \\
-        --gather-csv ${gather_csv} \\
+        --gather-csv gather_with_lineages.csv \\
         --taxonomy ${sourmash_taxonomy_csv} \\
         --output-dir taxgenome \\
         --output-format ${output_format} \\
         --output-base ${prefix} \\
         $args
+    
+    # Rename output file to match expected pattern
+    if [ -f "taxgenome/${prefix}.${output_format}.csv" ]; then
+        mv "taxgenome/${prefix}.${output_format}.csv" "taxgenome/${prefix}_genome_classification.csv"
+    elif [ -f "taxgenome/${prefix}.csv" ]; then
+        mv "taxgenome/${prefix}.csv" "taxgenome/${prefix}_genome_classification.csv"
+    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

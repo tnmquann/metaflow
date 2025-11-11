@@ -65,6 +65,11 @@
             "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
             "installed_by": ["modules"]
           },
+          "comebin/runcomebin": {
+            "branch": "master",
+            "git_sha": "6890e2209d0eb6c69dee5fcb5baf1108dbdfa523",
+            "installed_by": ["modules"]
+          },
           "concoct/concoct": {
             "branch": "master",
             "git_sha": "ff39793aeff17b7ccb107424215898710b4aa424",
@@ -215,6 +220,11 @@
             "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
             "installed_by": ["modules"]
           },
+          "semibin/singleeasybin": {
+            "branch": "master",
+            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "installed_by": ["modules"]
+          },
           "seqkit/fx2tab": {
             "branch": "master",
             "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
@@ -248,6 +258,11 @@
           "untar": {
             "branch": "master",
             "git_sha": "00ee87ebb541af0008596400ce6d5f66d79d5408",
+            "installed_by": ["modules"]
+          },
+          "vamb/bin": {
+            "branch": "master",
+            "git_sha": "38697a933bef7041bb935c9b8374d9948ce6c794",
             "installed_by": ["modules"]
           }
         }

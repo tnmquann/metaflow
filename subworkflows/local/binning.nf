@@ -5,6 +5,9 @@ nextflow.enable.dsl = 2
 include { METABAT2_METABAT2                                            } from '../../modules/nf-core/metabat2/metabat2/main'
 include { METABAT2_JGISUMMARIZEBAMCONTIGDEPTHS                         } from '../../modules/nf-core/metabat2/jgisummarizebamcontigdepths/main'
 include { MAXBIN2                                                      } from '../../modules/nf-core/maxbin2/main'
+include { COMEBIN_RUNCOMEBIN                                           } from '../../modules/nf-core/comebin/runcomebin/main'
+include { SEMIBIN_SINGLEEASYBIN                                        } from '../../modules/nf-core/semibin/singleeasybin/main'
+include { VAMB_BIN                                                     } from '../../modules/nf-core/vamb/bin/main'
 include { GUNZIP as GUNZIP_BINS                                        } from '../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_UNBINS                                      } from '../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_ASSEMBLIES_CONCOCT                          } from '../../modules/nf-core/gunzip/main'
@@ -27,6 +30,9 @@ workflow BINNING {
     ch_metabat2_bins = Channel.empty()
     ch_maxbin2_bins = Channel.empty()
     ch_concoct_bins = Channel.empty()
+    ch_comebin_bins = Channel.empty()
+    ch_semibin_bins = Channel.empty()
+    ch_vamb_bins = Channel.empty()
     ch_all_bins = Channel.empty()
 
     // Combine assemblies with their BAM/BAI files
@@ -125,7 +131,7 @@ workflow BINNING {
     }
 
     // ==============================================
-    // CONCOCT Binning - Fixed to match MAG pattern
+    // CONCOCT Binning
     // ==============================================
     if (!params.skip_concoct) {
         // Step 1: Decompress assemblies for CONCOCT (requires uncompressed FASTA)
@@ -139,7 +145,6 @@ workflow BINNING {
         versions_ch = versions_ch.mix(GUNZIP_ASSEMBLIES_CONCOCT.out.versions)
 
         // Step 2: Prepare multiMap input matching the FASTA_BINNING_CONCOCT signature
-        // CONCOCT expects: bins channel [meta, fasta] and bams channel [meta, [bams], [bais]]
         ch_concoct_input = ch_for_binning
             .map { meta, assembly, bams, bais ->
                 def meta_new = meta.clone()
@@ -175,15 +180,93 @@ workflow BINNING {
             }
     }
 
+    // ==============================================
+    // COMEBin Binning
+    // ==============================================
+    if (!params.skip_comebin) {
+        ch_comebin_input = ch_for_binning
+            .map { meta, assembly, bams, bais ->
+                def meta_new = meta.clone()
+                meta_new.binner = 'COMEBin'
+                [meta_new, assembly, bams]
+            }
+
+        COMEBIN_RUNCOMEBIN(ch_comebin_input)
+        versions_ch = versions_ch.mix(COMEBIN_RUNCOMEBIN.out.versions)
+
+        ch_comebin_bins = COMEBIN_RUNCOMEBIN.out.bins
+            .transpose()
+            .map { meta, bin ->
+                def meta_new = meta.clone()
+                meta_new.bin_id = bin.baseName
+                [meta_new, bin]
+            }
+    }
+
+    // ==============================================
+    // SemiBin2 Binning
+    // ==============================================
+    if (!params.skip_semibin) {
+        ch_semibin_input = ch_for_binning
+            .map { meta, assembly, bams, bais ->
+                def meta_new = meta.clone()
+                meta_new.binner = 'SemiBin2'
+                // SemiBin expects single BAM file, use first BAM
+                [meta_new, assembly, bams[0]]
+            }
+
+        SEMIBIN_SINGLEEASYBIN(ch_semibin_input)
+        versions_ch = versions_ch.mix(SEMIBIN_SINGLEEASYBIN.out.versions)
+
+        ch_semibin_bins = SEMIBIN_SINGLEEASYBIN.out.output_fasta
+            .transpose()
+            .map { meta, bin ->
+                def meta_new = meta.clone()
+                meta_new.bin_id = bin.baseName
+                [meta_new, bin]
+            }
+    }
+
+    // ==============================================
+    // VAMB Binning
+    // ==============================================
+    if (!params.skip_vamb) {
+        ch_vamb_input = ch_for_binning
+            .map { meta, assembly, bams, bais ->
+                def meta_new = meta.clone()
+                meta_new.binner = 'VAMB'
+                // VAMB signature: tuple val(meta), path(assembly), path(abundance_tsv), path(bams), path(taxonomy)
+                // We don't have abundance_tsv or taxonomy, pass empty
+                [meta_new, assembly, [], bams, []]
+            }
+
+        VAMB_BIN(ch_vamb_input)
+        versions_ch = versions_ch.mix(VAMB_BIN.out.versions)
+
+        ch_vamb_bins = VAMB_BIN.out.bins
+            .transpose()
+            .map { meta, bin ->
+                def meta_new = meta.clone()
+                meta_new.bin_id = bin.baseName
+                [meta_new, bin]
+            }
+    }
+
     // Combine all bins from all binners
     ch_all_bins = ch_metabat2_bins
         .mix(ch_maxbin2_bins)
         .mix(ch_concoct_bins)
+        .mix(ch_comebin_bins)
+        .mix(ch_semibin_bins)
+        .mix(ch_vamb_bins)
 
     emit:
     metabat2_bins   = ch_metabat2_bins
     maxbin2_bins    = ch_maxbin2_bins
     concoct_bins    = ch_concoct_bins
+    comebin_bins    = ch_comebin_bins
+    semibin_bins    = ch_semibin_bins
+    vamb_bins       = ch_vamb_bins
     all_bins        = ch_all_bins
     versions        = versions_ch
 }

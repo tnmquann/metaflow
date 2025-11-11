@@ -43,7 +43,7 @@ workflow BIN_ANNOTATION {
                 .fromPath(params.annotation_bakta_db, checkIfExists: true)
                 .first()
         } else {
-            BAKTA_BAKTADBDOWNLOAD(params.annotation_bakta_db_downloadtype)
+            BAKTA_BAKTADBDOWNLOAD()
             ch_versions = ch_versions.mix(BAKTA_BAKTADBDOWNLOAD.out.versions)
             ch_bakta_db = BAKTA_BAKTADBDOWNLOAD.out.db
         }

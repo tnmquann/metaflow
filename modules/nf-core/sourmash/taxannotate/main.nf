@@ -20,9 +20,10 @@ process SOURMASH_TAXANNOTATE {
 
     script:
     def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     sourmash \\
-        tax annotate \
+        tax annotate \\
         $args \\
         --gather-csv ${gather_results} \\
         --taxonomy ${taxonomy} \\
