@@ -33,7 +33,13 @@ process PROCESS_READBASED_RESULTS {
     mkdir -p temp_text_files
     mkdir -p temp_yacht_results
 
-    cp ${gather_csv} temp_text_files/sourmash_gather_withrocksdb.csv
+    # Decompress and copy the gather CSV file
+    if [[ ${gather_csv} == *.gz ]]; then
+        gunzip -c ${gather_csv} > temp_text_files/sourmash_gather_withrocksdb.csv
+    else
+        cp ${gather_csv} temp_text_files/sourmash_gather_withrocksdb.csv
+    fi
+
     cp ${yacht_xlsx} temp_yacht_results/
 
     python ${projectDir}/bin/py_scripts/read_based/process_sourmash_results.py \\
@@ -59,6 +65,7 @@ process PROCESS_READBASED_RESULTS {
     "${task.process}":
         python: \$(python --version 2>&1 | sed 's/Python //g')
         conda-forge: pandas=2.2.3 openpyxl=3.1.5
+        gunzip: \$(gunzip --version 2>&1 | head -n 1 | cut -d ' ' -f 2)
     END_VERSIONS
     """
 

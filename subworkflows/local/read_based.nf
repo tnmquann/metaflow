@@ -1,10 +1,16 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
-// Import modules
+// Import nf-core modules
+include { SOURMASH_TAXANNOTATE as SOURMASH_TAXANNOTATE_META } from '../../modules/nf-core/sourmash/taxannotate/main'
+
+// Import local modules
 include { MERGE_PAIREDENDSEQS } from '../../modules/local/merge/main'
-include { SOURMASH_MANYSKETCH } from '../../modules/local/sourmash/manysketch/main'
-include { SOURMASH_FASTMULTIGATHER } from '../../modules/local/sourmash/fastmultigather/main'
+include { CREATE_BINS_CSV as CREATE_READS_CSV } from '../../modules/local/sourmash/createbinscsv/main'
+include { SOURMASH_MANYSKETCH as SOURMASH_MANYSKETCH_META } from '../../modules/local/sourmash/manysketch/main'
+include { EXTRACT_SOURMASH_SINGLESKETCHES as EXTRACT_SOURMASH_SINGLESKETCHES_META } from '../../modules/local/finalize/readbased/extract_sourmash_singlesketches'
+include { SOURMASH_FASTMULTIGATHER as SOURMASH_FASTMULTIGATHER_META } from '../../modules/local/sourmash/fastmultigather/main'
+include { SOURMASH_TAXMETAGENOME } from '../../modules/local/sourmash/taxmetagenome/main'
 include { YACHT_RUN } from '../../modules/local/yacht/run/main'
 include { PROCESS_READBASED_RESULTS } from '../../modules/local/finalize/readbased/process_readbased'
 include { RGI_PREPARECARDDB } from '../../modules/local/rgi/preparecarddb/main'
@@ -18,7 +24,9 @@ workflow READ_BASED {
     versions_ch = Channel.empty()
     ch_rgi_results = Channel.empty() // Channel for RGI results if enabled
 
-    // RGI Branch - Only execute if enable_rgi_bwt is true 
+    // ============================================================
+    // RGI Branch - Keep existing logic unchanged
+    // ============================================================
     if (params.enable_rgi_bwt) {
         // Transform reads for RGI_BWT
         def rgi_reads = cleaned_reads_ch
@@ -46,53 +54,104 @@ workflow READ_BASED {
         ch_rgi_results = RGI_BWT.out.outdir
     }
 
-    // MERGE Branch
+    // ============================================================
+    // SOURMASH/YACHT Branch - New logic
+    // ============================================================
+    
+    // Step 1: Merge paired-end reads
     MERGE_PAIREDENDSEQS(cleaned_reads_ch)
     versions_ch = versions_ch.mix(MERGE_PAIREDENDSEQS.out.versions)
 
-    // Prepare input for SOURMASH_MANYSKETCH
-    ch_manysketch_csv_input = MERGE_PAIREDENDSEQS.out.merged_seqs
-        .collectFile(
-            name: "${params.outdir}/Sourmash - YACHT/manysketch_manifest.csv",
-            newLine: true,
-            seed: "name,genome_filename,protein_filename",
-            storeDir: "${params.outdir}/Sourmash - YACHT"
-        ) { meta, merged_file ->
-            "${meta.id},${merged_file},"
+    // Step 2: Create CSV manifest for merged sequences
+    // Group all merged sequences together
+    ch_merged_grouped = MERGE_PAIREDENDSEQS.out.merged_seqs
+        .map { meta, merged_file ->
+            def meta_batch = [id: 'batch']
+            [meta_batch, merged_file]
         }
-        .map { csv_file -> csv_file }
+        .groupTuple()
 
-    // Run Sourmash pipeline
-    SOURMASH_MANYSKETCH(ch_manysketch_csv_input)
-    versions_ch = versions_ch.mix(SOURMASH_MANYSKETCH.out.versions)
+    CREATE_READS_CSV(ch_merged_grouped)
+    versions_ch = versions_ch.mix(CREATE_READS_CSV.out.versions.first())
 
-    ch_sketch_zip_with_meta = SOURMASH_MANYSKETCH.out.sketch_zip_file
-        .map{ file -> [[id:'batch'], file] }
+    // Step 3: Run sourmash manysketch (new version)
+    SOURMASH_MANYSKETCH_META(CREATE_READS_CSV.out.bins_csv)
+    versions_ch = versions_ch.mix(SOURMASH_MANYSKETCH_META.out.versions.first())
 
-    SOURMASH_FASTMULTIGATHER(
-        ch_sketch_zip_with_meta,
+    // Use multiMap to split sketch outputs for parallel processing
+    ch_sketch_split = SOURMASH_MANYSKETCH_META.out.sketch_zip_file
+        .multiMap { meta, sketch_zip ->
+            for_fastmultigather: [meta, sketch_zip]
+            for_yacht: [meta, sketch_zip]
+            for_extract: [meta, sketch_zip]
+        }
+
+    // Step 4: Run sourmash fastmultigather (new version)
+    SOURMASH_FASTMULTIGATHER_META(
+        ch_sketch_split.for_fastmultigather,
         file(params.sourmash_database, checkIfExists: true)
     )
-    versions_ch = versions_ch.mix(SOURMASH_FASTMULTIGATHER.out.versions)
+    versions_ch = versions_ch.mix(SOURMASH_FASTMULTIGATHER_META.out.versions.first())
 
-    ch_zip_files_dir_with_meta = SOURMASH_MANYSKETCH.out.zip_files_dir
-        .map{ dir -> [[id:'batch'], dir] }
+    // Step 5: Run YACHT (parallel with step 6-8)
+    // Extract zip files directory for YACHT
+    ch_yacht_input = ch_sketch_split.for_yacht
+        .map { meta, sketch_zip ->
+            // YACHT needs directory containing individual zip files
+            // We'll use EXTRACT_SOURMASH_SINGLESKETCHES output
+            [meta, sketch_zip]
+        }
 
+    // Step 9: Extract single sketches (parallel branch - for publishing only)
+    EXTRACT_SOURMASH_SINGLESKETCHES_META(
+        ch_sketch_split.for_extract,
+        params.sourmash_ksize
+    )
+    versions_ch = versions_ch.mix(EXTRACT_SOURMASH_SINGLESKETCHES_META.out.versions.first())
+
+    // Use the extracted zip files directory for YACHT
     YACHT_RUN(
-        ch_zip_files_dir_with_meta,
+        EXTRACT_SOURMASH_SINGLESKETCHES_META.out.manysketch_dir.map { meta, dir -> 
+            [meta, file("${dir}/zip_files")]
+        },
         file(params.yacht_database, checkIfExists: true)
     )
-    versions_ch = versions_ch.mix(YACHT_RUN.out.versions)
+    versions_ch = versions_ch.mix(YACHT_RUN.out.versions.first())
 
-    // Process results
+    // Step 6: Run sourmash tax annotate
+    SOURMASH_TAXANNOTATE_META(
+        SOURMASH_FASTMULTIGATHER_META.out.gather_csv,
+        file(params.sourmash_taxonomy_csv, checkIfExists: true)
+    )
+    versions_ch = versions_ch.mix(SOURMASH_TAXANNOTATE_META.out.versions.first())
+
+    // Decompress the .with-lineages.csv.gz file
+    ch_taxannotate_decompressed = SOURMASH_TAXANNOTATE_META.out.result
+        .map { meta, csv_gz ->
+            // The process will output .csv.gz, we need to decompress it
+            [meta, csv_gz]
+        }
+
+    // Step 7: Process results (uses decompressed taxannotate and YACHT results)
     PROCESS_READBASED_RESULTS(
-        SOURMASH_FASTMULTIGATHER.out.gather_csv,
+        ch_taxannotate_decompressed,
         YACHT_RUN.out.yacht_xlsx
     )
-    versions_ch = versions_ch.mix(PROCESS_READBASED_RESULTS.out.versions)
+    versions_ch = versions_ch.mix(PROCESS_READBASED_RESULTS.out.versions.first())
+
+    // Step 8: Run sourmash tax metagenome
+    SOURMASH_TAXMETAGENOME(
+        SOURMASH_TAXANNOTATE_META.out.result,
+        file(params.sourmash_taxonomy_csv, checkIfExists: true)
+    )
+    versions_ch = versions_ch.mix(SOURMASH_TAXMETAGENOME.out.versions.first())
 
     emit:
     versions = versions_ch.ifEmpty(null)
     results = PROCESS_READBASED_RESULTS.out.final_results
     rgi_results = ch_rgi_results
+    gather_csv = SOURMASH_FASTMULTIGATHER_META.out.gather_csv
+    taxannotate = SOURMASH_TAXANNOTATE_META.out.result
+    metagenome_classification = SOURMASH_TAXMETAGENOME.out.genome_classification
+    single_sketches = EXTRACT_SOURMASH_SINGLESKETCHES_META.out.sig_zip_files
 }

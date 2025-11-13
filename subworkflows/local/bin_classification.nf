@@ -6,12 +6,12 @@ include { SOURMASH_TAXANNOTATE }            from '../../modules/nf-core/sourmash
 
 // Import local modules
 include { CREATE_BINS_CSV }                         from '../../modules/local/sourmash/createbinscsv/main'
-include { SOURMASH_MANYSKETCH as SOURMASH_MANYSKETCH_BINS }     from '../../modules/local/sourmash/manysketch2/main'
-include { EXTRACT_SOURMASH_SINGLESKETCHES }         from '../../modules/local/finalize/assemblybased/extract_sourmash_singlesketches'
-include { SOURMASH_FASTMULTIGATHER as SOURMASH_FASTMULTIGATHER_BINS } from '../../modules/local/sourmash/fastmultigather2/main'
-include { COMBINE_FASTMULTIGATHER_RESULTS } from '../../modules/local/finalize/assemblybased/combine_fastmultigather_results'
-include { COMBINE_FASTMULTIGATHER_RESULTS as COMBINE_TAXANNOTATE_RESULTS} from '../../modules/local/finalize/assemblybased/combine_fastmultigather_results'
-include { COMBINE_FASTMULTIGATHER_RESULTS as COMBINE_TAXGENOME_RESULTS} from '../../modules/local/finalize/assemblybased/combine_fastmultigather_results'
+include { SOURMASH_MANYSKETCH as SOURMASH_MANYSKETCH_BINS }     from '../../modules/local/sourmash/manysketch/main'
+include { EXTRACT_SOURMASH_SINGLESKETCHES }         from '../../modules/local/finalize/readbased/extract_sourmash_singlesketches'
+include { SOURMASH_FASTMULTIGATHER as SOURMASH_FASTMULTIGATHER_BINS } from '../../modules/local/sourmash/fastmultigather/main'
+include { COMBINE_FASTMULTIGATHER_RESULTS } from '../../modules/local/finalize/readbased/combine_fastmultigather_results'
+include { COMBINE_FASTMULTIGATHER_RESULTS as COMBINE_TAXANNOTATE_RESULTS} from '../../modules/local/finalize/readbased/combine_fastmultigather_results'
+include { COMBINE_FASTMULTIGATHER_RESULTS as COMBINE_TAXGENOME_RESULTS} from '../../modules/local/finalize/readbased/combine_fastmultigather_results'
 include { SOURMASH_TAXGENOME }              from '../../modules/local/sourmash/taxgenome/main'
 
 workflow BIN_CLASSIFICATION {
@@ -65,7 +65,7 @@ workflow BIN_CLASSIFICATION {
     // Step 9: Extract single sketches (parallel branch - only for publishing)
     EXTRACT_SOURMASH_SINGLESKETCHES(
         ch_sketch_split.for_extract,
-        params.sourmash_ksize_bins
+        params.sourmash_ksize
     )
     ch_versions = ch_versions.mix(EXTRACT_SOURMASH_SINGLESKETCHES.out.versions.first())
 

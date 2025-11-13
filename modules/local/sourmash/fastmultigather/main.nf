@@ -1,12 +1,8 @@
 process SOURMASH_FASTMULTIGATHER {
-    tag "Running on ${manysketch_zip}"
+    tag "${manysketch_zip.baseName}"
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-
-    publishDir "${params.fastmultigather_dir}",
-        mode: params.publish_dir_mode,
-        saveAs: { filename -> filename.equals('versions.yml') ? null : filename }
 
     input:
     tuple val(meta), path(manysketch_zip)
@@ -17,19 +13,30 @@ process SOURMASH_FASTMULTIGATHER {
     path "versions.yml", emit: versions
 
     script:
-    def prefix = task.ext.prefix ?: meta.id ?: "fastmultigather_results"
-    def args = task.ext.args ?: '' // Added for custom arguments
+    def prefix = task.ext.prefix ?: "${manysketch_zip.baseName}"
+    def args = task.ext.args ?: ''
+    def threshold = params.sourmash_thresholdbp ? "--threshold-bp=${params.sourmash_thresholdbp}" : '--threshold-bp=50000'
     """
     sourmash scripts fastmultigather \\
         ${manysketch_zip} \\
         ${sourmash_database} \\
         -c ${task.cpus} \\
-        -k ${params.ksize} \\
+        -k ${params.sourmash_ksize} \\
         -o ${prefix}_sourmash_gather_withrocksdb.csv \\
-        $args
+        ${threshold} \\
+        $args 2>&1 | tee fastmultigather.log
 
     mkdir -p fastmultigather
     mv ${prefix}_sourmash_gather_withrocksdb.csv fastmultigather/${prefix}_sourmash_gather.csv
+
+    # Extract no match bins
+    if [ -f fastmultigather.log ]; then
+        grep "No matches to" fastmultigather.log | awk -F"'" '{print \$2}' > fastmultigather/no_match_bins.txt || touch fastmultigather/no_match_bins.txt
+        mv fastmultigather.log fastmultigather/
+    fi
+
+    # Move any prefetch files if they exist
+    find . -name "*.prefetch.csv" -exec mv {} fastmultigather/ \\; || true
 
     cd fastmultigather
     sed -i 's/match_filename/filename/g' ${prefix}_sourmash_gather.csv
@@ -45,10 +52,11 @@ process SOURMASH_FASTMULTIGATHER {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: meta.id ?: "fastmultigather_results"
+    def prefix = task.ext.prefix ?: "fastmultigather_results"
     """
     mkdir -p fastmultigather
     touch fastmultigather/${prefix}_sourmash_gather.csv
+    touch fastmultigather/no_match_bins.txt
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         sourmash: "stub_version"
