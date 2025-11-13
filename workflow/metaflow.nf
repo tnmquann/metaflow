@@ -57,7 +57,7 @@ workflow METAFLOW {
         // Create input channel
         input_ch = params.input_format == 'csv' ?
             createCsvInputChannel(params.input) :
-            Channel.fromFilePairs("${params.input}/*_{1,2}*.fastq.gz")
+            Channel.fromFilePairs("${params.input}/*_{1,2}*.{fastq,fastq.gz,fq,fq.gz}")
                 .map { sample_id, reads ->
                     def meta = [id:sample_id, single_end:false, run_id:'default_run', group:'default_group']
                     return tuple(meta, reads)
