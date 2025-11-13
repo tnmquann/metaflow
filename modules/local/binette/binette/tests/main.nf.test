@@ -1,0 +1,119 @@
+nextflow_process {
+
+    name "Test Process BINETTE_BINETTE"
+    script "../main.nf"
+    process "BINETTE_BINETTE"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_nfcore"
+    tag "binette"
+    tag "binette/binette"
+
+    test("contig2bin_tables - metabat2/maxbin2 tsv files") {
+        
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', input_mode:'contig2bin_tables' ], // meta map
+                    file(params.test_data['sarscov2']['illumina']['contigs_fasta'], checkIfExists: true),
+                    [
+                        file(params.test_data['sarscov2']['illumina']['test_1_tsv'], checkIfExists: true),
+                        file(params.test_data['sarscov2']['illumina']['test_2_tsv'], checkIfExists: true)
+                    ],
+                    [] // no proteins file
+                ]
+                input[1] = [] // no checkm2 db (will use default)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    test("bin_dirs - metabat2/maxbin2 directories") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', input_mode:'bin_dirs' ], // meta map  
+                    file(params.test_data['sarscov2']['illumina']['contigs_fasta'], checkIfExists: true),
+                    [
+                        file(params.test_data['sarscov2']['illumina']['bins_dir_1'], checkIfExists: true),
+                        file(params.test_data['sarscov2']['illumina']['bins_dir_2'], checkIfExists: true)
+                    ],
+                    [] // no proteins file
+                ]
+                input[1] = [] // no checkm2 db (will use default)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    test("contig2bin_tables with proteins") {
+        
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', input_mode:'contig2bin_tables' ], // meta map
+                    file(params.test_data['sarscov2']['illumina']['contigs_fasta'], checkIfExists: true),
+                    [
+                        file(params.test_data['sarscov2']['illumina']['test_1_tsv'], checkIfExists: true),
+                        file(params.test_data['sarscov2']['illumina']['test_2_tsv'], checkIfExists: true)
+                    ],
+                    file(params.test_data['sarscov2']['illumina']['proteins_fasta'], checkIfExists: true)
+                ]
+                input[1] = [] // no checkm2 db (will use default)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    test("contig2bin_tables - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', input_mode:'contig2bin_tables' ], // meta map
+                    file(params.test_data['sarscov2']['illumina']['contigs_fasta'], checkIfExists: true),
+                    [
+                        file(params.test_data['sarscov2']['illumina']['test_1_tsv'], checkIfExists: true),
+                        file(params.test_data['sarscov2']['illumina']['test_2_tsv'], checkIfExists: true)
+                    ],
+                    [] // no proteins file
+                ]
+                input[1] = [] // no checkm2 db (will use default)
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+}

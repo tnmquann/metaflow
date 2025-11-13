@@ -1,13 +1,8 @@
 process MERGE_PAIREDENDSEQS {
     tag { meta.id }
     label 'process_low'
-    maxForks 2
-
+    
     conda "conda-forge::pigz=2.3.4"
-
-    publishDir "${params.merged_seq_dir}",
-        mode: params.publish_dir_mode,
-        enabled: params.enable_copymergedseqs
 
     input:
     tuple val(meta), path(reads)  // reads is now a list of two files

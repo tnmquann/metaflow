@@ -24,11 +24,11 @@ process YACHT_RUN {
     mkdir -p yacht_results
     
     # Copy signature files to current directory
-    cp ${zip_files_dir}/*_${params.ksize}.sig.zip .
+    cp ${zip_files_dir}/*_${params.yacht_ksize}.sig.zip .
     
     # Process each signature file
-    for sig_zip in *_${params.ksize}.sig.zip; do
-        sample_name=\$(basename \$sig_zip _${params.ksize}.sig.zip)
+    for sig_zip in *_${params.yacht_ksize}.sig.zip; do
+        sample_name=\$(basename \$sig_zip _${params.yacht_ksize}.sig.zip)
         
         yacht run \\
             --json ${yacht_database_json} \\
@@ -41,7 +41,7 @@ process YACHT_RUN {
     done
     
     # Cleanup
-    rm -f *_${params.ksize}.sig.zip
+    rm -f *_${params.yacht_ksize}.sig.zip
     find . -type d -name "*intermediate_files" -exec rm -rf {} +
 
     # Correct version extraction for YACHT

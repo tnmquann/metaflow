@@ -20,6 +20,7 @@
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
+                    "default": "./results",
                     "description": "The output directory where results will be saved"
                 },
                 "input_format": {
@@ -33,6 +34,11 @@
                     "default": "copy",
                     "description": "Method used to save pipeline results",
                     "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
+                },
+                "trimmed_fastq": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to trimmed FASTQ directory"
                 }
             }
         },
@@ -46,20 +52,27 @@
                     "pattern": "^.+$",
                     "exists": true,
                     "description": "Path to Sourmash database (.rocksdb, .zip, or directory)",
-                    "help_text": "Path to a Sourmash database in RocksDB format (.rocksdb), ZIP format (.zip), or directory containing database files"
+                    "help_text": "Required for bin classification and read-based profiling"
+                },
+                "sourmash_taxonomy_csv": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to taxonomy lineages CSV file for Sourmash",
+                    "help_text": "Required for taxonomic annotation"
                 },
                 "yacht_database": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Path to YACHT database configuration file",
-                    "help_text": "Path to a YACHT database configuration JSON file"
+                    "help_text": "Required only if using read-based profiling workflow"
                 }
             }
         },
-        "host_removal_options": {
-            "title": "Host removal options",
+        "preprocessing_options": {
+            "title": "Preprocessing options",
             "type": "object",
-            "description": "Options for host sequence removal with Hostile",
+            "description": "Options for quality control and host removal",
             "properties": {
                 "hostile_reference": {
                     "type": "string",
@@ -68,26 +81,821 @@
                 },
                 "hostile_index": {
                     "type": "string",
-                    "description": "Name of the Hostile index to use",
-                    "default": "human-t2t-hla"
+                    "default": "human-t2t-hla",
+                    "description": "Name of the Hostile index to use"
                 },
                 "hostile_ref_name": {
                     "type": "string",
-                    "description": "Reference name for Hostile (defaults to hostile_index if not set)",
-                    "default": "human-t2t-hla"
+                    "default": "human-t2t-hla",
+                    "description": "Reference name for Hostile (defaults to hostile_index if not set)"
+                },
+                "hostile_fetch_args": {
+                    "type": "string",
+                    "description": "Additional arguments for Hostile fetch"
+                },
+                "hostile_clean_args": {
+                    "type": "string",
+                    "default": "--debug",
+                    "description": "Additional arguments for Hostile clean"
+                },
+                "fastp_adapter_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to adapter FASTA file for Fastp"
+                },
+                "fastp_save_trimmed_fail": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save reads that failed trimming"
+                },
+                "fastp_save_merged": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save merged paired-end reads"
+                }
+            }
+        },
+        "workflow_options": {
+            "title": "Workflow options",
+            "type": "object",
+            "description": "Options controlling which workflows to run",
+            "properties": {
+                "enable_readbase": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run the read-based profiling subworkflow instead of assembly-based"
+                },
+                "enable_rgi_bwt": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable RGI BWT analysis for antimicrobial resistance genes"
+                }
+            }
+        },
+        "assembly_options": {
+            "title": "Assembly options",
+            "type": "object",
+            "description": "Options controlling assembly workflows",
+            "properties": {
+                "skip_megahit": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the MEGAHIT assembly"
+                },
+                "skip_spades": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the SPAdes assembly"
+                },
+                "skip_quast": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip QUAST assembly quality assessment"
+                },
+                "megahit_options": {
+                    "type": "string",
+                    "description": "Additional command-line options to pass to MEGAHIT"
+                },
+                "spades_options": {
+                    "type": "string",
+                    "description": "Additional command-line options to pass to SPAdes"
+                },
+                "megahit_fix_cpu_1": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Force MEGAHIT to use a single CPU"
+                },
+                "spades_fix_cpus": {
+                    "type": "integer",
+                    "default": -1,
+                    "description": "Set a fixed number of CPUs for SPAdes when >= 0"
+                }
+            }
+        },
+        "contig_analysis_options": {
+            "title": "Contig analysis options",
+            "type": "object",
+            "description": "Options for analyzing assembled contigs",
+            "properties": {
+                "skip_contig_analysis": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the entire contig analysis subworkflow"
+                },
+                "skip_contig_annotation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip contig annotation"
+                },
+                "annotation_tool": {
+                    "type": "string",
+                    "default": "pyrodigal",
+                    "description": "Tool for contig annotation",
+                    "enum": ["pyrodigal", "prokka"]
+                },
+                "save_contig_annotations": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save gene annotations in results directory"
+                },
+                "skip_genomad_e2e": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip geNomad virus/plasmid identification"
+                },
+                "genomad_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to local geNomad database"
+                },
+                "save_genomad_db": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save downloaded geNomad database"
+                },
+                "genomad_min_score": {
+                    "type": "number",
+                    "default": 0.7,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Minimum score for geNomad classification"
+                },
+                "genomad_splits": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Number of splits for geNomad processing"
+                },
+                "skip_skani_search": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip SKANI ANI-based classification"
+                },
+                "skani_db": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to SKANI database"
+                },
+                "skip_tiara_contigqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip TIARA domain classification for contigs"
+                },
+                "tiara_min_length": {
+                    "type": "integer",
+                    "default": 3000,
+                    "minimum": 1000,
+                    "description": "Minimum contig length for TIARA classification"
+                },
+                "genomad_e2e_options": {
+                    "type": "string",
+                    "default": "--enable-score-calibration",
+                    "description": "Additional command-line options for geNomad end-to-end analysis"
+                }
+            }
+        },
+        "binning_options": {
+            "title": "Binning options",
+            "type": "object",
+            "description": "Options for metagenomic binning",
+            "properties": {
+                "skip_binning": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the entire binning workflow"
+                },
+                "skip_binning_bamabund": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip mapping reads to assemblies for binning"
+                },
+                "binprepare_mappertool": {
+                    "type": "string",
+                    "default": "bowtie2",
+                    "description": "Mapper tool for binning preparation",
+                    "enum": ["bowtie2", "bwamem2"]
+                },
+                "bowtie2_mode": {
+                    "type": "string",
+                    "description": "Bowtie2 alignment mode (e.g., '--very-sensitive')"
+                },
+                "save_assembly_mapped_reads": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save BAM and BAI files from read mapping"
+                },
+                "skip_metabat2": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip MetaBAT2 binning"
+                },
+                "skip_maxbin2": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip MaxBin2 binning"
+                },
+                "skip_concoct": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Skip CONCOCT binning"
+                },
+                "skip_comebin": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip COMEBin binning"
+                },
+                "skip_semibin": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip SemiBin2 binning"
+                },
+                "skip_vamb": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Skip VAMB binning"
+                },
+                "min_contig_size": {
+                    "type": "integer",
+                    "default": 1500,
+                    "minimum": 1000,
+                    "description": "Minimum contig size for binning (bp)"
+                },
+                "min_length_unbinned_contigs": {
+                    "type": "integer",
+                    "default": 1000000,
+                    "description": "Minimum length for splitting unbinned contigs"
+                },
+                "max_unbinned_contigs": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Maximum number of unbinned contigs to split"
+                },
+                "metabat_rng_seed": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Random seed for MetaBAT2"
+                },
+                "semibin_environment": {
+                    "type": "string",
+                    "default": "human_gut",
+                    "description": "SemiBin2 environment preset"
+                }
+            }
+        },
+        "binning_refinement_options": {
+            "title": "Binning refinement options",
+            "type": "object",
+            "description": "Options for refining bins using DAS Tool or Binette",
+            "properties": {
+                "skip_binning_refinement": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip binning refinement workflow"
+                },
+                "refine_tool": {
+                    "type": "string",
+                    "default": "binette",
+                    "description": "Tool for bin refinement",
+                    "enum": ["dastool", "binette"]
+                },
+                "refine_bins_dastool_threshold": {
+                    "type": "number",
+                    "default": 0.5,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "DAS Tool score threshold"
+                },
+                "refine_bins_binette_min_completeness": {
+                    "type": "number",
+                    "default": 40,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Binette minimum completeness threshold"
+                },
+                "refine_bins_binette_contamination_weight": {
+                    "type": "number",
+                    "default": 5,
+                    "minimum": 0,
+                    "description": "Binette contamination weight"
+                },
+                "checkm2_db": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to CheckM2 database (required for Binette and CheckM2 Bin QC)"
+                },
+                "postbinning_input": {
+                    "type": "string",
+                    "default": "both",
+                    "description": "Which bins to use for downstream analysis",
+                    "enum": ["raw_bins_only", "refined_bins_only", "both"]
+                }
+            }
+        },
+        "bin_domain_classification_options": {
+            "title": "Bin domain classification options",
+            "type": "object",
+            "description": "Options for classifying bins by domain",
+            "properties": {
+                "bin_domain_classification": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable bin domain classification workflow"
+                },
+                "bin_domain_classification_tool": {
+                    "type": "string",
+                    "default": "tiara",
+                    "description": "Tool for domain classification",
+                    "enum": ["tiara"]
+                }
+            }
+        },
+        "bin_qc_options": {
+            "title": "Bin quality control options",
+            "type": "object",
+            "description": "Options for assessing bin quality",
+            "properties": {
+                "skip_binqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip bin quality control"
+                },
+                "binqc_tool": {
+                    "type": "string",
+                    "default": "checkm2",
+                    "description": "Tool for bin quality assessment",
+                    "enum": ["busco", "checkm", "checkm2"]
+                },
+                "busco_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to BUSCO database"
+                },
+                "busco_db_lineage": {
+                    "type": "string",
+                    "default": "auto",
+                    "description": "BUSCO lineage dataset"
+                },
+                "save_busco_db": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save downloaded BUSCO database"
+                },
+                "busco_clean": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Clean up BUSCO temporary files"
+                },
+                "checkm_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to CheckM database"
+                },
+                "checkm_download_url": {
+                    "type": "string",
+                    "default": "https://zenodo.org/records/7401545/files/checkm_data_2015_01_16.tar.gz",
+                    "description": "URL for CheckM database download"
+                },
+                "save_checkm_data": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save downloaded CheckM database"
+                },
+                "checkm2_db_version": {
+                    "type": "integer",
+                    "default": 14897628,
+                    "description": "Zenodo record ID for CheckM2 database"
+                },
+                "save_checkm2_data": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save downloaded CheckM2 database"
+                },
+                "run_gunc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run GUNC chimera detection"
+                },
+                "gunc_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to GUNC database"
+                },
+                "gunc_database_type": {
+                    "type": "string",
+                    "default": "progenomes",
+                    "description": "GUNC database type",
+                    "enum": ["progenomes", "gtdb"]
+                },
+                "gunc_save_db": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save downloaded GUNC database"
+                },
+                "assembly_stats_params": {
+                    "type": "string",
+                    "description": "Additional parameters for assembly statistics"
+                }
+            }
+        },
+        "bin_annotation_options": {
+            "title": "Bin annotation options",
+            "type": "object",
+            "description": "Options for annotating bins",
+            "properties": {
+                "skip_bin_annotation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip bin annotation workflow"
+                },
+                "bin_annotation_tool": {
+                    "type": "string",
+                    "default": "prokka",
+                    "description": "Tool for bin annotation",
+                    "enum": ["prokka", "bakta"]
+                },
+                "save_bin_annotations": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save annotation results"
+                },
+                "annotation_bakta_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to Bakta database"
+                },
+                "annotation_bakta_db_downloadtype": {
+                    "type": "string",
+                    "default": "full",
+                    "description": "Bakta database type",
+                    "enum": ["full", "light"]
+                },
+                "save_bakta_db": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save downloaded Bakta database"
+                },
+                "annotation_bakta_mincontiglen": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Minimum contig length for Bakta (bp)"
+                },
+                "prokka_bins_fast_mode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use Prokka fast mode"
+                },
+                "annotation_bakta_gram": {
+                    "type": "string",
+                    "default": "?",
+                    "description": "Gram staining for Bakta annotation",
+                    "enum": ["+", "-", "?"]
+                },
+                "annotation_bakta_translationtable": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "Translation table for Bakta annotation"
+                }
+            }
+        },
+        "bin_classification_options": {
+            "title": "Bin classification options",
+            "type": "object",
+            "description": "Options for taxonomic classification of bins",
+            "properties": {
+                "skip_bin_classification": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip bin taxonomic classification"
+                },
+                "sourmash_output_format": {
+                    "type": "string",
+                    "default": "csv_summary",
+                    "description": "Sourmash output format",
+                    "enum": ["csv_summary", "krona", "lineage_summary"]
+                },
+                "sourmash_ksize": {
+                    "type": "integer",
+                    "default": 31,
+                    "description": "k-mer size for Sourmash sketching"
+                },
+                "sourmash_thresholdbp": {
+                    "type": "integer",
+                    "description": "Threshold in base pairs for Sourmash gather"
+                },
+                "sourmash_profile": {
+                    "type": "string",
+                    "default": "dna,k=31,k=51,scaled=1000,abund",
+                    "description": "Sourmash sketch profile"
+                },
+                "enable_copysketch": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save batch sketch files to output"
+                },
+                "enable_copysketch_singles": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Save individual single sketch files to output"
+                },
+                "yacht_ksize": {
+                    "type": "integer",
+                    "default": 31,
+                    "description": "k-mer size for YACHT analysis (must match sourmash_ksize when using both)",
+                    "help_text": "This value should be consistent with sourmash_ksize to ensure compatibility between Sourmash and YACHT workflows"
+                }
+            }
+        },
+        "rgi_options": {
+            "title": "RGI options",
+            "type": "object",
+            "description": "Options for antimicrobial resistance gene identification",
+            "properties": {
+                "rgi_aligner": {
+                    "type": "string",
+                    "default": "kma",
+                    "description": "RGI aligner",
+                    "enum": ["kma", "bowtie2", "bwa"]
+                },
+                "rgi_include_wildcard": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Include wildcard variants in RGI"
+                },
+                "rgi_include_other_models": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Include other model types in RGI"
+                },
+                "rgi_bwt_args": {
+                    "type": "string",
+                    "default": "--clean",
+                    "description": "Additional RGI BWT arguments"
+                },
+                "rgi_preparecarddb_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory for RGI database"
+                }
+            }
+        },
+        "pyrodigal_options": {
+            "title": "Pyrodigal annotation options",
+            "type": "object",
+            "description": "Options for Pyrodigal gene prediction",
+            "properties": {
+                "annotation_pyrodigal_singlemode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use single-genome mode"
+                },
+                "annotation_pyrodigal_closed": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disallow partial genes on contig edges"
+                },
+                "annotation_pyrodigal_transtable": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "Translation table"
+                },
+                "annotation_pyrodigal_forcenonsd": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Force scan for motifs"
+                }
+            }
+        },
+        "prokka_options": {
+            "title": "Prokka annotation options",
+            "type": "object",
+            "description": "Options for Prokka gene annotation",
+            "properties": {
+                "annotation_prokka_kingdom": {
+                    "type": "string",
+                    "default": "Bacteria",
+                    "description": "Prokka kingdom",
+                    "enum": ["Bacteria", "Archaea", "Mitochondria", "Viruses"]
+                },
+                "annotation_prokka_gcode": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "Prokka genetic code"
+                },
+                "annotation_prokka_mincontiglen": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Minimum contig size for annotation (bp)"
+                },
+                "annotation_prokka_compliant": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Force Genbank/ENA/DDJB compliance for Prokka annotation"
+                },
+                "annotation_prokka_coverage": {
+                    "type": "integer",
+                    "default": 80,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Minimum coverage percentage for Prokka annotation"
+                },
+                "annotation_prokka_evalue": {
+                    "type": "number",
+                    "default": 0.000001,
+                    "minimum": 0,
+                    "description": "E-value cut-off for Prokka similarity searches"
+                }
+            }
+        },
+        "misc_options": {
+            "title": "Miscellaneous options",
+            "type": "object",
+            "description": "Other pipeline options",
+            "properties": {
+                "cleanup": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Clean up intermediate files after completion"
+                },
+                "cleanup_patterns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["work", "intermediate_files", ".nextflow*", ".command.*", "process_tmp"],
+                    "description": "List of file/directory patterns to clean up when cleanup is enabled"
+                },
+                "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address for completion notification"
+                },
+                "enable_copymergedseqs": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Copy merged sequences to output"
+                },
+                "enable_copyintermediate": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Copy intermediate files to output"
+                },
+                "config_profile_name": {
+                    "type": "string",
+                    "description": "Institutional config name"
+                },
+                "config_profile_description": {
+                    "type": "string",
+                    "description": "Institutional config description"
+                }
+            }
+        },
+        "resource_options": {
+            "title": "Resource options",
+            "type": "object",
+            "description": "Global and profile-specific resource allocation limits",
+            "properties": {
+                "max_cpus": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "description": "Maximum number of CPUs that can be requested for any process"
+                },
+                "max_memory": {
+                    "type": "string",
+                    "default": "60.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Maximum memory allocation that can be requested for any process"
+                },
+                "max_time": {
+                    "type": "string",
+                    "default": "24.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Maximum time limit that can be requested for any process"
+                },
+                "default_max_cpu": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Default CPU allocation for standard processes"
+                },
+                "default_max_mem": {
+                    "type": "string",
+                    "default": "7.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Default memory allocation for standard processes"
+                },
+                "default_max_time": {
+                    "type": "string",
+                    "default": "4.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Default time limit for standard processes"
+                },
+                "single_max_cpu": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "CPU allocation for single-threaded processes"
+                },
+                "single_max_mem": {
+                    "type": "string",
+                    "default": "6.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Memory allocation for single-threaded processes"
+                },
+                "single_max_time": {
+                    "type": "string",
+                    "default": "4.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Time limit for single-threaded processes"
+                },
+                "low_max_cpu": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 1,
+                    "description": "CPU allocation for low-resource processes"
+                },
+                "low_max_mem": {
+                    "type": "string",
+                    "default": "12.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Memory allocation for low-resource processes"
+                },
+                "low_max_time": {
+                    "type": "string",
+                    "default": "4.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Time limit for low-resource processes"
+                },
+                "medium_max_cpu": {
+                    "type": "integer",
+                    "default": 12,
+                    "minimum": 1,
+                    "description": "CPU allocation for medium-resource processes"
+                },
+                "medium_max_mem": {
+                    "type": "string",
+                    "default": "60.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Memory allocation for medium-resource processes"
+                },
+                "medium_max_time": {
+                    "type": "string",
+                    "default": "8.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Time limit for medium-resource processes"
+                },
+                "high_max_cpu": {
+                    "type": "integer",
+                    "default": 25,
+                    "minimum": 1,
+                    "description": "CPU allocation for high-resource processes"
+                },
+                "high_max_mem": {
+                    "type": "string",
+                    "default": "120.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Memory allocation for high-resource processes"
+                },
+                "high_max_time": {
+                    "type": "string",
+                    "default": "16.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Time limit for high-resource processes"
+                },
+                "long_max_time": {
+                    "type": "string",
+                    "default": "20.h",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
+                    "description": "Extended time limit for long-running processes"
+                },
+                "highmem_max_mem": {
+                    "type": "string",
+                    "default": "200.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Extended memory allocation for memory-intensive processes"
                 }
             }
         }
     },
     "allOf": [
-        {
-            "$ref": "#/$defs/input_output_options"
-        },
-        {
-            "$ref": "#/$defs/database_options"
-        },
-        {
-            "$ref": "#/$defs/host_removal_options"
-        }
+        { "$ref": "#/$defs/input_output_options" },
+        { "$ref": "#/$defs/database_options" },
+        { "$ref": "#/$defs/preprocessing_options" },
+        { "$ref": "#/$defs/workflow_options" },
+        { "$ref": "#/$defs/assembly_options" },
+        { "$ref": "#/$defs/contig_analysis_options" },
+        { "$ref": "#/$defs/binning_options" },
+        { "$ref": "#/$defs/binning_refinement_options" },
+        { "$ref": "#/$defs/bin_domain_classification_options" },
+        { "$ref": "#/$defs/bin_qc_options" },
+        { "$ref": "#/$defs/bin_annotation_options" },
+        { "$ref": "#/$defs/bin_classification_options" },
+        { "$ref": "#/$defs/rgi_options" },
+        { "$ref": "#/$defs/pyrodigal_options" },
+        { "$ref": "#/$defs/prokka_options" },
+        { "$ref": "#/$defs/resource_options" },
+        { "$ref": "#/$defs/misc_options" }
     ]
 }
