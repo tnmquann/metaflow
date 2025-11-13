@@ -380,8 +380,8 @@
                 },
                 "checkm2_db": {
                     "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to CheckM2 database (required for Binette)"
+                    "format": "file-path",
+                    "description": "Path to CheckM2 database (required for Binette and CheckM2 Bin QC)"
                 },
                 "postbinning_input": {
                     "type": "string",
