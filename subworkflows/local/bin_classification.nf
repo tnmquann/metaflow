@@ -55,14 +55,13 @@ workflow BIN_CLASSIFICATION {
         }
 
     // Step 3: Run fastmultigather
-    // Output: ${meta.assembler}-${meta.binner ?: 'binrefine'}-${meta.binrefine ?: 'rawbins'}-${meta.id}_sourmash_gather.csv
     SOURMASH_FASTMULTIGATHER_BINS(
         ch_sketch_split.for_fastmultigather,
         file(params.sourmash_database, checkIfExists: true)
     )
     ch_versions = ch_versions.mix(SOURMASH_FASTMULTIGATHER_BINS.out.versions.first())
 
-    // Step 9: Extract single sketches (parallel branch - only for publishing)
+    // Step 9: Extract single sketches
     EXTRACT_SOURMASH_SINGLESKETCHES(
         ch_sketch_split.for_extract,
         params.sourmash_ksize
@@ -71,7 +70,6 @@ workflow BIN_CLASSIFICATION {
 
     // Step 4: Run sourmash tax annotate
     // Input: gather_csv from step 3
-    // Output: ${meta.assembler}-${meta.binner ?: 'binrefine'}-${meta.binrefine ?: 'rawbins'}-${meta.id}_sourmash_gather.with-lineages.csv.gz
     SOURMASH_TAXANNOTATE(
         SOURMASH_FASTMULTIGATHER_BINS.out.gather_csv,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
@@ -80,7 +78,6 @@ workflow BIN_CLASSIFICATION {
 
     // Step 5: Run sourmash tax genome
     // Input: TAXANNOTATE output (with-lineages.csv.gz)
-    // Output: ${meta.assembler}-${meta.binner ?: 'binrefine'}-${meta.binrefine ?: 'rawbins'}-${meta.id}_genome_classification.csv
     SOURMASH_TAXGENOME(
         SOURMASH_TAXANNOTATE.out.result,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)

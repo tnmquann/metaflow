@@ -68,7 +68,6 @@ workflow BIN_QC {
 
     // CheckM2 database setup
     if (params.checkm2_db) {
-        // CheckM2 expects tuple val(dbmeta), path(db)
         ch_checkm2_db = [[id: 'checkm2_db'], file(params.checkm2_db, checkIfExists: true)]
     } else if (params.binqc_tool == 'checkm2') {
         CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
@@ -196,18 +195,15 @@ workflow BIN_QC {
             CHECKM_QA.out.output.map { it[1] }.flatten()
         )
     } else if (params.binqc_tool == "checkm2") {
-        // Chuẩn bị bins cho CheckM2 - nhóm tất cả bins theo sample
         ch_bins_for_checkm2 = ch_bins
             .map { meta, bins ->
                 def bin_list = bins instanceof Collection ? bins.flatten() : [bins]
                 [meta, bin_list]
             }
 
-        // Chạy CHECKM2_PREDICT với bins và database
         CHECKM2_PREDICT(ch_bins_for_checkm2, ch_checkm2_db)
         ch_versions = ch_versions.mix(CHECKM2_PREDICT.out.versions)
 
-        // Gom kết quả cho multiqc và summary
         ch_qc_summaries = CHECKM2_PREDICT.out.checkm2_tsv
             .map { _meta, summary -> [[id: 'checkm2'], summary] }
             .groupTuple()
