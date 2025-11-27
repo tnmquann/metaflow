@@ -3,4 +3,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - binette=1.1.2
+  - binette=1.2.1
