@@ -3,6 +3,7 @@ process YACHT_RUN {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
+    container "community.wave.seqera.io/library/sourmash_yacht_pandas_sourmash_plugin_branchwater:f5cacb08e855b10c"
 
     publishDir "${params.yacht_results_dir}",
         mode: params.publish_dir_mode,

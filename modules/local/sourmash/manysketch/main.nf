@@ -3,6 +3,7 @@ process SOURMASH_MANYSKETCH {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
+    container "community.wave.seqera.io/library/sourmash_pandas_sourmash_plugin_branchwater:477d25f3865da957"
 
     publishDir "${params.sketches_dir}", mode: params.publish_dir_mode, enabled: params.enable_copysketch
 

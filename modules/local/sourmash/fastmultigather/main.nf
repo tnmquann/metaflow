@@ -3,6 +3,7 @@ process SOURMASH_FASTMULTIGATHER {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
+    container "community.wave.seqera.io/library/sourmash_pandas_sourmash_plugin_branchwater:477d25f3865da957"
 
     input:
     tuple val(meta), path(manysketch_zip)

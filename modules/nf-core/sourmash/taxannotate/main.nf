@@ -3,9 +3,7 @@ process SOURMASH_TAXANNOTATE {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/sourmash:4.9.4--hdfd78af_0':
-        'biocontainers/sourmash:4.9.4--hdfd78af_0' }"
+    container "community.wave.seqera.io/library/sourmash_pandas_sourmash_plugin_branchwater:477d25f3865da957"
 
     input:
     tuple val(meta), path(gather_results)
