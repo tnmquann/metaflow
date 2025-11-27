@@ -3,6 +3,7 @@ process SOURMASH_TAXGENOME {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
+    container "community.wave.seqera.io/library/sourmash_pandas_sourmash_plugin_branchwater:477d25f3865da957"
 
     input:
     tuple val(meta), path(taxannotate_csv_gz)

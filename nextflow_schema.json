@@ -233,7 +233,7 @@
                 },
                 "skani_db": {
                     "type": "string",
-                    "format": "file-path",
+                    "format": "directory-path",
                     "description": "Path to SKANI database"
                 },
                 "skip_tiara_contigqc": {
@@ -477,7 +477,7 @@
                 },
                 "gunc_db": {
                     "type": "string",
-                    "format": "directory-path",
+                    "format": "file-path",
                     "description": "Path to GUNC database"
                 },
                 "gunc_database_type": {

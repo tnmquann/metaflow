@@ -48,7 +48,7 @@ workflow DOMAIN_CLASSIFICATION {
             [meta_join, meta, contig2bin, bin_list]
         }
 
-    // FIX: Combine with Tiara classifications - EXACTLY like MAG pipeline
+    // FIX: Combine with Tiara classifications
     ch_tiara_classify_input = ch_contigs_to_bin_tiara
         .combine(TIARA_TIARA.out.classifications, by: 0)
         .map { _meta_join, meta, contig2bin, bin_list, classifications ->
