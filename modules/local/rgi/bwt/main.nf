@@ -55,7 +55,6 @@ process RGI_BWT {
         -2 ${reads2} \\
         -n ${task.cpus} \\
         -o ./${prefix}/${prefix} \\
-        \$DEFAULT_ARGS \\
         ${args} || {
         echo "ERROR: RGI bwt failed" >&2
         exit 1
