@@ -74,6 +74,12 @@
             "type": "object",
             "description": "Options for quality control and host removal",
             "properties": {
+                "skip_preprocess": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the entire preprocessing workflow (QC and host removal)",
+                    "help_text": "When enabled, the pipeline will use input reads directly for downstream analysis, bypassing Fastp and Hostile steps"
+                },
                 "hostile_reference": {
                     "type": "string",
                     "format": "directory-path",

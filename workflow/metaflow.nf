@@ -63,14 +63,20 @@ workflow METAFLOW {
                     return tuple(meta, reads)
                 }
 
-        // Run subworkflows
-        PREPROCESS(input_ch)
+        // Conditional preprocessing
+        def cleaned_reads_source
+        if (!params.skip_preprocess) {
+            PREPROCESS(input_ch)
+            cleaned_reads_source = PREPROCESS.out.cleaned_reads
+        } else {
+            // When skip_preprocess is true, use raw input reads directly
+            cleaned_reads_source = input_ch
+        }
 
-        def cleaned_reads_source = PREPROCESS.out.cleaned_reads
+        // Initialize empty channels with default values
         def read_based_versions_ch = Channel.empty()
         def read_based_results_ch = Channel.empty()
         def read_based_rgi_ch = Channel.empty()
-
         def assembly_versions_ch = Channel.empty()
         def assembly_megahit_contigs_ch = Channel.empty()
         def assembly_metaspades_contigs_ch = Channel.empty()
@@ -86,6 +92,7 @@ workflow METAFLOW {
         def binclassification_versions_ch = Channel.empty()
         def binclassification_summary_ch = Channel.empty()
 
+        // Use cleaned_reads_source for downstream workflows
         if (params.enable_readbase) {
             READ_BASED(cleaned_reads_source)
             read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
