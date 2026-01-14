@@ -4,6 +4,7 @@ nextflow.enable.dsl = 2
 // Import subworkflows
 include { PREPROCESS } from '../subworkflows/local/preprocess'
 include { READ_BASED } from '../subworkflows/local/read_based'
+include { READ_BASED_SINGLERUN } from '../subworkflows/local/read_based_singlerun'
 include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based'
 include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund'
 include { CLEANUP } from '../modules/local/cleanup/main'
@@ -94,10 +95,20 @@ workflow METAFLOW {
 
         // Use cleaned_reads_source for downstream workflows
         if (params.enable_readbase) {
-            READ_BASED(cleaned_reads_source)
-            read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
-            read_based_results_ch = READ_BASED.out.results ?: Channel.empty()
-            read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
+            // Check if single-sample processing mode is enabled
+            if (params.enable_singlesketch) {
+                // Use READ_BASED_SINGLERUN for per-sample processing
+                READ_BASED_SINGLERUN(cleaned_reads_source)
+                read_based_versions_ch = READ_BASED_SINGLERUN.out.versions ?: Channel.empty()
+                read_based_results_ch = READ_BASED_SINGLERUN.out.results ?: Channel.empty()
+                read_based_rgi_ch = READ_BASED_SINGLERUN.out.rgi_results ?: Channel.empty()
+            } else {
+                // Use READ_BASED for batch processing (default)
+                READ_BASED(cleaned_reads_source)
+                read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
+                read_based_results_ch = READ_BASED.out.results ?: Channel.empty()
+                read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
+            }
         } else {
             ASSEMBLY_BASED(cleaned_reads_source)
             assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()

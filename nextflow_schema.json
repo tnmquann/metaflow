@@ -131,6 +131,11 @@
                     "default": false,
                     "description": "Run the read-based profiling subworkflow instead of assembly-based"
                 },
+                "enable_singlesketch": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable per-sample processing mode using SOURMASH_SKETCH and SOURMASH_GATHER instead of batch processing with SOURMASH_MANYSKETCH and SOURMASH_FASTMULTIGATHER. Useful for HPC environments where per-sample job control is needed."
+                },
                 "enable_rgi_bwt": {
                     "type": "boolean",
                     "default": false,
