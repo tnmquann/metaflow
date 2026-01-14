@@ -604,6 +604,12 @@
                     "default": true,
                     "description": "Save individual single sketch files to output"
                 },
+                "skip_yacht": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip YACHT-based filtering and read-based results processing",
+                    "help_text": "When enabled, the pipeline will skip YACHT analysis"
+                },
                 "yacht_ksize": {
                     "type": "integer",
                     "default": 31,

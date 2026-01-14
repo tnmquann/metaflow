@@ -74,7 +74,7 @@ workflow READ_BASED {
     CREATE_READS_CSV(ch_merged_grouped)
     versions_ch = versions_ch.mix(CREATE_READS_CSV.out.versions.first())
 
-    // Step 3: Run sourmash manysketch (new version)
+    // Step 3: Run sourmash manysketch
     SOURMASH_MANYSKETCH_META(CREATE_READS_CSV.out.bins_csv)
     versions_ch = versions_ch.mix(SOURMASH_MANYSKETCH_META.out.versions.first())
 
@@ -86,7 +86,7 @@ workflow READ_BASED {
             for_extract: [meta, sketch_zip]
         }
 
-    // Step 4: Run sourmash fastmultigather (new version)
+    // Step 4: Run sourmash fastmultigather
     SOURMASH_FASTMULTIGATHER_META(
         ch_sketch_split.for_fastmultigather,
         file(params.sourmash_database, checkIfExists: true)
@@ -109,15 +109,6 @@ workflow READ_BASED {
     )
     versions_ch = versions_ch.mix(EXTRACT_SOURMASH_SINGLESKETCHES_META.out.versions.first())
 
-    // Use the extracted zip files directory for YACHT
-    YACHT_RUN(
-        EXTRACT_SOURMASH_SINGLESKETCHES_META.out.manysketch_dir.map { meta, dir -> 
-            [meta, file("${dir}/zip_files")]
-        },
-        file(params.yacht_database, checkIfExists: true)
-    )
-    versions_ch = versions_ch.mix(YACHT_RUN.out.versions.first())
-
     // Step 6: Run sourmash tax annotate
     SOURMASH_TAXANNOTATE_META(
         SOURMASH_FASTMULTIGATHER_META.out.gather_csv,
@@ -125,21 +116,27 @@ workflow READ_BASED {
     )
     versions_ch = versions_ch.mix(SOURMASH_TAXANNOTATE_META.out.versions.first())
 
-    // Decompress the .with-lineages.csv.gz file
     ch_taxannotate_decompressed = SOURMASH_TAXANNOTATE_META.out.result
-        .map { meta, csv_gz ->
-            // The process will output .csv.gz, we need to decompress it
-            [meta, csv_gz]
-        }
+        .map { meta, csv_gz -> [meta, csv_gz] }
 
-    // Step 7: Process results (uses decompressed taxannotate and YACHT results)
-    PROCESS_READBASED_RESULTS(
-        ch_taxannotate_decompressed,
-        YACHT_RUN.out.yacht_xlsx
-    )
-    versions_ch = versions_ch.mix(PROCESS_READBASED_RESULTS.out.versions.first())
+    // Step 7: Only run YACHT + PROCESS_READBASED_RESULTS when not skipping
+    if (!params.skip_yacht) {
+        YACHT_RUN(
+            EXTRACT_SOURMASH_SINGLESKETCHES_META.out.manysketch_dir.map { meta, dir ->
+                [meta, file("${dir}/zip_files")]
+            },
+            file(params.yacht_database, checkIfExists: true)
+        )
+        versions_ch = versions_ch.mix(YACHT_RUN.out.versions.first())
 
-    // Step 8: Run sourmash tax metagenome
+        PROCESS_READBASED_RESULTS(
+            ch_taxannotate_decompressed,
+            YACHT_RUN.out.yacht_xlsx
+        )
+        versions_ch = versions_ch.mix(PROCESS_READBASED_RESULTS.out.versions.first())
+    }
+
+    // Step 8
     SOURMASH_TAXMETAGENOME(
         SOURMASH_TAXANNOTATE_META.out.result,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
@@ -148,10 +145,13 @@ workflow READ_BASED {
 
     emit:
     versions = versions_ch.ifEmpty(null)
-    results = PROCESS_READBASED_RESULTS.out.final_results
+    results  = params.skip_yacht ? Channel.empty() : PROCESS_READBASED_RESULTS.out.final_results
+
     rgi_results = ch_rgi_results
-    gather_csv = SOURMASH_FASTMULTIGATHER_META.out.gather_csv
+    gather_csv  = SOURMASH_FASTMULTIGATHER_META.out.gather_csv
     taxannotate = SOURMASH_TAXANNOTATE_META.out.result
     metagenome_classification = SOURMASH_TAXMETAGENOME.out.genome_classification
     single_sketches = EXTRACT_SOURMASH_SINGLESKETCHES_META.out.sig_zip_files
+
+    yacht_results = params.skip_yacht ? Channel.empty() : YACHT_RUN.out.yacht_xlsx
 }
