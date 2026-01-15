@@ -50,10 +50,22 @@ workflow METAFLOW {
     main:
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
         UTILS_NFSCHEMA_PLUGIN (
-            workflow,           // Pass workflow object
-            true,              // Validate parameters
-            "${projectDir}/nextflow_schema.json" // Schema path
+            workflow,
+            true,
+            "${projectDir}/nextflow_schema.json"
         )
+
+        // Preflight: normalize optional params + warnings
+        def checkm2_db = params.checkm2_db?.toString()?.trim()
+        if (!checkm2_db) {
+            params.checkm2_db = null
+            // Only show warning if user is actually using CheckM2 or Binette
+            def needs_checkm2_db = (!params.enable_readbase && params.binqc_tool == 'checkm2' && !params.skip_binqc) || 
+                                   (!params.enable_readbase && params.refine_tool == 'binette' && !params.skip_binning_refinement)
+            if (needs_checkm2_db && !params.skip_binning && !params.skip_binning_bamabund) {
+                log.warn "⚠️  Parameter --checkm2_db not provided; CheckM2 database will be downloaded automatically for CheckM2/Binette steps."
+            }
+        }
 
         // Create input channel
         input_ch = params.input_format == 'csv' ?

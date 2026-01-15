@@ -23,6 +23,14 @@ workflow READ_BASED_SINGLERUN {
     versions_ch = Channel.empty()
     ch_rgi_results = Channel.empty() // Channel for RGI results if enabled
 
+    // Validate required parameters for this subworkflow
+    if (!params.sourmash_database) {
+        error "Missing required parameter for read-based single-run profiling: --sourmash_database"
+    }
+    if (!params.sourmash_taxonomy_csv) {
+        error "Missing required parameter for read-based single-run profiling: --sourmash_taxonomy_csv (required by SOURMASH_TAXANNOTATE)"
+    }
+
     // ============================================================
     // RGI Branch - Keep existing logic unchanged
     // ============================================================

@@ -54,7 +54,7 @@
                     "format": "file-path",
                     "exists": true,
                     "description": "Path to taxonomy lineages CSV file for Sourmash",
-                    "help_text": "Required for taxonomic annotation"
+                    "help_text": "Required when running workflows that use SOURMASH_TAXANNOTATE (READ_BASED, READ_BASED_SINGLERUN, BIN_CLASSIFICATION). The pipeline will error if missing."
                 },
                 "yacht_database": {
                     "type": "string",
@@ -387,7 +387,8 @@
                 "checkm2_db": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to CheckM2 database (required for Binette and CheckM2 Bin QC)"
+                    "description": "Path to CheckM2 database (optional; will be downloaded if needed for Binette or CheckM2 Bin QC)",
+                    "help_text": "If omitted and binqc_tool=checkm2 or refine_tool=binette, the pipeline downloads and configures the CheckM2 database."
                 },
                 "postbinning_input": {
                     "type": "string",
@@ -760,6 +761,12 @@
                 "config_profile_description": {
                     "type": "string",
                     "description": "Institutional config description"
+                },
+                "trace_report_suffix": {
+                    "type": "string",
+                    "fa_icon": "far calendar",
+                    "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
+                    "hidden": true
                 }
             }
         },
