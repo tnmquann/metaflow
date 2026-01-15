@@ -34,11 +34,6 @@
                     "default": "copy",
                     "description": "Method used to save pipeline results",
                     "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
-                },
-                "trimmed_fastq": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to trimmed FASTQ directory"
                 }
             }
         },
