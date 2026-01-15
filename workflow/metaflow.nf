@@ -193,9 +193,6 @@ workflow METAFLOW {
                     def ch_refined_bins = Channel.empty()
 
                     if (!params.skip_binning_refinement) {
-                        if (!params.checkm2_db && params.refine_tool == 'binette') {
-                            error "CheckM2 database path must be provided for Binette refinement. Please set params.checkm2_db"
-                        }
 
                         // Group bins for refinement (remove domain to group all together)
                         ch_bins_for_refinement = ch_raw_bins
