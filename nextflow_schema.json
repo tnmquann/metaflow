@@ -777,13 +777,13 @@
             "properties": {
                 "max_cpus": {
                     "type": "integer",
-                    "default": 20,
+                    "default": 25,
                     "minimum": 1,
                     "description": "Maximum number of CPUs that can be requested for any process"
                 },
                 "max_memory": {
                     "type": "string",
-                    "default": "60.GB",
+                    "default": "120.GB",
                     "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
                     "description": "Maximum memory allocation that can be requested for any process"
                 },
@@ -792,108 +792,6 @@
                     "default": "24.h",
                     "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
                     "description": "Maximum time limit that can be requested for any process"
-                },
-                "default_max_cpu": {
-                    "type": "integer",
-                    "default": 1,
-                    "minimum": 1,
-                    "description": "Default CPU allocation for standard processes"
-                },
-                "default_max_mem": {
-                    "type": "string",
-                    "default": "7.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Default memory allocation for standard processes"
-                },
-                "default_max_time": {
-                    "type": "string",
-                    "default": "4.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Default time limit for standard processes"
-                },
-                "single_max_cpu": {
-                    "type": "integer",
-                    "default": 1,
-                    "minimum": 1,
-                    "description": "CPU allocation for single-threaded processes"
-                },
-                "single_max_mem": {
-                    "type": "string",
-                    "default": "6.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for single-threaded processes"
-                },
-                "single_max_time": {
-                    "type": "string",
-                    "default": "4.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for single-threaded processes"
-                },
-                "low_max_cpu": {
-                    "type": "integer",
-                    "default": 4,
-                    "minimum": 1,
-                    "description": "CPU allocation for low-resource processes"
-                },
-                "low_max_mem": {
-                    "type": "string",
-                    "default": "12.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for low-resource processes"
-                },
-                "low_max_time": {
-                    "type": "string",
-                    "default": "4.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for low-resource processes"
-                },
-                "medium_max_cpu": {
-                    "type": "integer",
-                    "default": 12,
-                    "minimum": 1,
-                    "description": "CPU allocation for medium-resource processes"
-                },
-                "medium_max_mem": {
-                    "type": "string",
-                    "default": "60.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for medium-resource processes"
-                },
-                "medium_max_time": {
-                    "type": "string",
-                    "default": "8.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for medium-resource processes"
-                },
-                "high_max_cpu": {
-                    "type": "integer",
-                    "default": 25,
-                    "minimum": 1,
-                    "description": "CPU allocation for high-resource processes"
-                },
-                "high_max_mem": {
-                    "type": "string",
-                    "default": "120.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for high-resource processes"
-                },
-                "high_max_time": {
-                    "type": "string",
-                    "default": "16.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for high-resource processes"
-                },
-                "long_max_time": {
-                    "type": "string",
-                    "default": "20.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Extended time limit for long-running processes"
-                },
-                "highmem_max_mem": {
-                    "type": "string",
-                    "default": "200.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Extended memory allocation for memory-intensive processes"
                 }
             }
         }

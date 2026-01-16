@@ -110,11 +110,11 @@ workflow BINNING_REFINEMENT {
     } else if (params.refine_tool == 'binette') {
         // CheckM2 database setup (matching BIN_QC pattern)
         if (params.checkm2_db) {
-            ch_checkm2_db = [[id: 'checkm2_db'], file(params.checkm2_db, checkIfExists: true)]
+            ch_checkm2_db = Channel.value(file(params.checkm2_db, checkIfExists: true))
         } else {
             CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
             ch_versions = ch_versions.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
-            ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
+            ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database.map { meta, db -> db }
         }
 
         // Prepare input for Binette

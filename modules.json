@@ -222,7 +222,7 @@
           },
           "semibin/singleeasybin": {
             "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "git_sha": "5cb9a8694da0a0e550921636bb60bc8c56445fd7",
             "installed_by": ["modules"]
           },
           "seqkit/fx2tab": {

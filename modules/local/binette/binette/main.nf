@@ -1,6 +1,6 @@
 process BINETTE_BINETTE {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -60,7 +60,7 @@ process BINETTE_BINETTE {
         [ -e "\$binfile" ] || continue
         dir="\${binfile%/*}"
         base="\${binfile##*/}"
-        prefix="${meta.assembler}-${meta.binrefine}-${meta.id}-Refined-"
+        prefix="${prefix}-Refined-"
 
         # Skip unbinned.fa
         [[ "\$base" == "unbinned.fa" ]] && continue
