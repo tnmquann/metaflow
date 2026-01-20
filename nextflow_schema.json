@@ -34,11 +34,6 @@
                     "default": "copy",
                     "description": "Method used to save pipeline results",
                     "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
-                },
-                "trimmed_fastq": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to trimmed FASTQ directory"
                 }
             }
         },
@@ -59,7 +54,7 @@
                     "format": "file-path",
                     "exists": true,
                     "description": "Path to taxonomy lineages CSV file for Sourmash",
-                    "help_text": "Required for taxonomic annotation"
+                    "help_text": "Required when running workflows that use SOURMASH_TAXANNOTATE (READ_BASED, READ_BASED_SINGLERUN, BIN_CLASSIFICATION). The pipeline will error if missing."
                 },
                 "yacht_database": {
                     "type": "string",
@@ -74,6 +69,12 @@
             "type": "object",
             "description": "Options for quality control and host removal",
             "properties": {
+                "skip_preprocess": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip the entire preprocessing workflow (QC and host removal)",
+                    "help_text": "When enabled, the pipeline will use input reads directly for downstream analysis, bypassing Fastp and Hostile steps"
+                },
                 "hostile_reference": {
                     "type": "string",
                     "format": "directory-path",
@@ -124,6 +125,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Run the read-based profiling subworkflow instead of assembly-based"
+                },
+                "enable_singlesketch": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable per-sample processing mode using SOURMASH_SKETCH and SOURMASH_GATHER instead of batch processing with SOURMASH_MANYSKETCH and SOURMASH_FASTMULTIGATHER. Useful for HPC environments where per-sample job control is needed."
                 },
                 "enable_rgi_bwt": {
                     "type": "boolean",
@@ -381,7 +387,8 @@
                 "checkm2_db": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to CheckM2 database (required for Binette and CheckM2 Bin QC)"
+                    "description": "Path to CheckM2 database (optional; will be downloaded if needed for Binette or CheckM2 Bin QC)",
+                    "help_text": "If omitted and binqc_tool=checkm2 or refine_tool=binette, the pipeline downloads and configures the CheckM2 database."
                 },
                 "postbinning_input": {
                     "type": "string",
@@ -598,6 +605,12 @@
                     "default": true,
                     "description": "Save individual single sketch files to output"
                 },
+                "skip_yacht": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip YACHT-based filtering and read-based results processing",
+                    "help_text": "When enabled, the pipeline will skip YACHT analysis"
+                },
                 "yacht_ksize": {
                     "type": "integer",
                     "default": 31,
@@ -748,6 +761,12 @@
                 "config_profile_description": {
                     "type": "string",
                     "description": "Institutional config description"
+                },
+                "trace_report_suffix": {
+                    "type": "string",
+                    "fa_icon": "far calendar",
+                    "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
+                    "hidden": true
                 }
             }
         },
@@ -758,13 +777,13 @@
             "properties": {
                 "max_cpus": {
                     "type": "integer",
-                    "default": 20,
+                    "default": 25,
                     "minimum": 1,
                     "description": "Maximum number of CPUs that can be requested for any process"
                 },
                 "max_memory": {
                     "type": "string",
-                    "default": "60.GB",
+                    "default": "120.GB",
                     "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
                     "description": "Maximum memory allocation that can be requested for any process"
                 },
@@ -773,108 +792,6 @@
                     "default": "24.h",
                     "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
                     "description": "Maximum time limit that can be requested for any process"
-                },
-                "default_max_cpu": {
-                    "type": "integer",
-                    "default": 1,
-                    "minimum": 1,
-                    "description": "Default CPU allocation for standard processes"
-                },
-                "default_max_mem": {
-                    "type": "string",
-                    "default": "7.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Default memory allocation for standard processes"
-                },
-                "default_max_time": {
-                    "type": "string",
-                    "default": "4.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Default time limit for standard processes"
-                },
-                "single_max_cpu": {
-                    "type": "integer",
-                    "default": 1,
-                    "minimum": 1,
-                    "description": "CPU allocation for single-threaded processes"
-                },
-                "single_max_mem": {
-                    "type": "string",
-                    "default": "6.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for single-threaded processes"
-                },
-                "single_max_time": {
-                    "type": "string",
-                    "default": "4.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for single-threaded processes"
-                },
-                "low_max_cpu": {
-                    "type": "integer",
-                    "default": 4,
-                    "minimum": 1,
-                    "description": "CPU allocation for low-resource processes"
-                },
-                "low_max_mem": {
-                    "type": "string",
-                    "default": "12.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for low-resource processes"
-                },
-                "low_max_time": {
-                    "type": "string",
-                    "default": "4.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for low-resource processes"
-                },
-                "medium_max_cpu": {
-                    "type": "integer",
-                    "default": 12,
-                    "minimum": 1,
-                    "description": "CPU allocation for medium-resource processes"
-                },
-                "medium_max_mem": {
-                    "type": "string",
-                    "default": "60.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for medium-resource processes"
-                },
-                "medium_max_time": {
-                    "type": "string",
-                    "default": "8.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for medium-resource processes"
-                },
-                "high_max_cpu": {
-                    "type": "integer",
-                    "default": 25,
-                    "minimum": 1,
-                    "description": "CPU allocation for high-resource processes"
-                },
-                "high_max_mem": {
-                    "type": "string",
-                    "default": "120.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Memory allocation for high-resource processes"
-                },
-                "high_max_time": {
-                    "type": "string",
-                    "default": "16.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Time limit for high-resource processes"
-                },
-                "long_max_time": {
-                    "type": "string",
-                    "default": "20.h",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(s|m|h|d)$",
-                    "description": "Extended time limit for long-running processes"
-                },
-                "highmem_max_mem": {
-                    "type": "string",
-                    "default": "200.GB",
-                    "pattern": "^\\d+(\\.\\d+)?\\s*\\.?\\s*(K|M|G|T)?B$",
-                    "description": "Extended memory allocation for memory-intensive processes"
                 }
             }
         }

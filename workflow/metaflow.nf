@@ -4,6 +4,7 @@ nextflow.enable.dsl = 2
 // Import subworkflows
 include { PREPROCESS } from '../subworkflows/local/preprocess'
 include { READ_BASED } from '../subworkflows/local/read_based'
+include { READ_BASED_SINGLERUN } from '../subworkflows/local/read_based_singlerun'
 include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based'
 include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund'
 include { CLEANUP } from '../modules/local/cleanup/main'
@@ -49,10 +50,22 @@ workflow METAFLOW {
     main:
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
         UTILS_NFSCHEMA_PLUGIN (
-            workflow,           // Pass workflow object
-            true,              // Validate parameters
-            "${projectDir}/nextflow_schema.json" // Schema path
+            workflow,
+            true,
+            "${projectDir}/nextflow_schema.json"
         )
+
+        // Preflight: normalize optional params + warnings
+        def checkm2_db = params.checkm2_db?.toString()?.trim()
+        if (!checkm2_db) {
+            params.checkm2_db = null
+            // Only show warning if user is actually using CheckM2 or Binette
+            def needs_checkm2_db = (!params.enable_readbase && params.binqc_tool == 'checkm2' && !params.skip_binqc) || 
+                                   (!params.enable_readbase && params.refine_tool == 'binette' && !params.skip_binning_refinement)
+            if (needs_checkm2_db && !params.skip_binning && !params.skip_binning_bamabund) {
+                log.warn "⚠️  Parameter --checkm2_db not provided; CheckM2 database will be downloaded automatically for CheckM2/Binette steps."
+            }
+        }
 
         // Create input channel
         input_ch = params.input_format == 'csv' ?
@@ -63,14 +76,20 @@ workflow METAFLOW {
                     return tuple(meta, reads)
                 }
 
-        // Run subworkflows
-        PREPROCESS(input_ch)
+        // Conditional preprocessing
+        def cleaned_reads_source
+        if (!params.skip_preprocess) {
+            PREPROCESS(input_ch)
+            cleaned_reads_source = PREPROCESS.out.cleaned_reads
+        } else {
+            // When skip_preprocess is true, use raw input reads directly
+            cleaned_reads_source = input_ch
+        }
 
-        def cleaned_reads_source = PREPROCESS.out.cleaned_reads
+        // Initialize empty channels with default values
         def read_based_versions_ch = Channel.empty()
         def read_based_results_ch = Channel.empty()
         def read_based_rgi_ch = Channel.empty()
-
         def assembly_versions_ch = Channel.empty()
         def assembly_megahit_contigs_ch = Channel.empty()
         def assembly_metaspades_contigs_ch = Channel.empty()
@@ -86,11 +105,22 @@ workflow METAFLOW {
         def binclassification_versions_ch = Channel.empty()
         def binclassification_summary_ch = Channel.empty()
 
+        // Use cleaned_reads_source for downstream workflows
         if (params.enable_readbase) {
-            READ_BASED(cleaned_reads_source)
-            read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
-            read_based_results_ch = READ_BASED.out.results ?: Channel.empty()
-            read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
+            // Check if single-sample processing mode is enabled
+            if (params.enable_singlesketch) {
+                // Use READ_BASED_SINGLERUN for per-sample processing
+                READ_BASED_SINGLERUN(cleaned_reads_source)
+                read_based_versions_ch = READ_BASED_SINGLERUN.out.versions ?: Channel.empty()
+                read_based_results_ch = READ_BASED_SINGLERUN.out.results ?: Channel.empty()
+                read_based_rgi_ch = READ_BASED_SINGLERUN.out.rgi_results ?: Channel.empty()
+            } else {
+                // Use READ_BASED for batch processing (default)
+                READ_BASED(cleaned_reads_source)
+                read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
+                read_based_results_ch = READ_BASED.out.results ?: Channel.empty()
+                read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
+            }
         } else {
             ASSEMBLY_BASED(cleaned_reads_source)
             assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
@@ -163,9 +193,6 @@ workflow METAFLOW {
                     def ch_refined_bins = Channel.empty()
 
                     if (!params.skip_binning_refinement) {
-                        if (!params.checkm2_db && params.refine_tool == 'binette') {
-                            error "CheckM2 database path must be provided for Binette refinement. Please set params.checkm2_db"
-                        }
 
                         // Group bins for refinement (remove domain to group all together)
                         ch_bins_for_refinement = ch_raw_bins

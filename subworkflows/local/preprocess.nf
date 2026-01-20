@@ -37,20 +37,24 @@ workflow PREPROCESS {
     // 4. Host Removal
     ch_hostile_ref_dir = Channel.empty()
     if (params.hostile_reference) {
-        ch_hostile_ref_dir = Channel.value(file(params.hostile_reference, checkIfExists: true))
+        // User provided a reference directory
+        def ref_name = params.hostile_ref_name ?: params.hostile_index ?: 'human-t2t-hla'
+        ch_hostile_ref_dir = Channel.value([ref_name, file(params.hostile_reference, checkIfExists: true)])
     } else {
-        // Use the hostile_index parameter as input for HOSTILE_FETCH
+        // Use HOSTILE_FETCH to download the reference
         def index_name = params.hostile_index ?: 'human-t2t-hla'
         HOSTILE_FETCH ( index_name )
+        
+        // HOSTILE_FETCH already outputs [val(index_name), path(reference/)]
         ch_hostile_ref_dir = HOSTILE_FETCH.out.reference
+        
         versions_coll = versions_coll.mix(HOSTILE_FETCH.out.versions)
     }
 
-    // Before HOSTILE_CLEAN process call, prepare the reference channel properly
-    def ref_name = params.hostile_ref_name ?: params.hostile_index
+    // Now ch_hostile_ref_dir is properly formatted as [ref_name, ref_dir]
     HOSTILE_CLEAN (
         FASTP.out.reads,
-        ch_hostile_ref_dir.map { ref_dir -> [ ref_name, ref_dir ] }
+        ch_hostile_ref_dir
     )
     versions_coll = versions_coll.mix(HOSTILE_CLEAN.out.versions)
 

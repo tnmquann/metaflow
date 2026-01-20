@@ -23,10 +23,10 @@ workflow BIN_CLASSIFICATION {
 
     // Validate required parameters
     if (!params.sourmash_database) {
-        error "sourmash_database parameter is required for bin classification"
+        error "Missing required parameter for bin classification: --sourmash_database"
     }
     if (!params.sourmash_taxonomy_csv) {
-        error "sourmash_taxonomy_csv parameter is required for bin classification"
+        error "Missing required parameter for bin classification: --sourmash_taxonomy_csv (path to Sourmash taxonomy lineages CSV)"
     }
 
     // Step 1: Group bins by assembly/binner/binrefine/sample to create CSV manifests

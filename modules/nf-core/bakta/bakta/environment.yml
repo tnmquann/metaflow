@@ -5,3 +5,4 @@ channels:
   - bioconda
 dependencies:
   - bioconda::bakta=1.11.4
+  - bioconda::diamond=2.1.18

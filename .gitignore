@@ -3,7 +3,7 @@
 .nf-test/
 .nf-test.*
 work/
-
+__pycache__/
 # Hidden files
 .nextflow*
 .vscode*

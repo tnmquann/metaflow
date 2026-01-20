@@ -4,3 +4,4 @@ channels:
   - bioconda
 dependencies:
   - binette=1.2.1
+  - pyrodigal=3.6.3

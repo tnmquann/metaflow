@@ -12,6 +12,7 @@ include { DASTOOL_DASTOOL                                         } from '../../
 include { BINETTE_BINETTE                                         } from '../../modules/local/binette/binette/main.nf'
 include { RENAME_PREBINREFINE                                     } from '../../modules/local/rename/prebinrefine/main.nf'
 include { RENAME_POSTBINREFINE                                    } from '../../modules/local/rename/postbinrefine/main.nf'
+include { CHECKM2_DATABASEDOWNLOAD                             } from '../../modules/nf-core/checkm2/databasedownload/main'
 
 workflow BINNING_REFINEMENT {
     take:
@@ -107,6 +108,15 @@ workflow BINNING_REFINEMENT {
                 [meta_refined, bins]
             }
     } else if (params.refine_tool == 'binette') {
+        // CheckM2 database setup (matching BIN_QC pattern)
+        if (params.checkm2_db) {
+            ch_checkm2_db = Channel.value(file(params.checkm2_db, checkIfExists: true))
+        } else {
+            CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
+            ch_versions = ch_versions.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
+            ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database.map { meta, db -> db }
+        }
+
         // Prepare input for Binette
         ch_input_for_binette = assemblies
             .map { meta, assembly -> 
@@ -128,7 +138,7 @@ workflow BINNING_REFINEMENT {
 
         BINETTE_BINETTE(
             ch_input_for_binette,
-            file(params.checkm2_db)
+            ch_checkm2_db
         )
         ch_versions = ch_versions.mix(BINETTE_BINETTE.out.versions)
 
