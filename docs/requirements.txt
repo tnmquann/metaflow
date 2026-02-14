@@ -1,0 +1,17 @@
+shibuya==2026.1.9
+sphinx_tabs==3.4.7
+sphinx_copybutton==0.5.2
+sphinx_design==0.7.0
+myst_parser==5.0.0
+jupyter_sphinx==0.5.3
+sphinx_togglebutton==0.4.4
+nbsphinx==0.9.8
+numpydoc==1.10.0
+sphinx_sitemap==2.9.0
+sphinxcontrib.mermaid==2.0.0
+sphinxcontrib.video==0.4.2
+sphinxcontrib.youtube==1.4.1
+sphinx_click==6.2.0
+sphinx_contributors==0.2.7
+click_extra[sphinx]==7.5.1
+sphinx_datatables==1.0.0
