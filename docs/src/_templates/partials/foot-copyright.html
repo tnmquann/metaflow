@@ -1,0 +1,15 @@
+<div class="sy-foot-copyright">
+  <p>
+    By {{ doc_author }}
+  </p>
+  {%- if show_copyright -%}
+  <p>© Copyright {{ copyright }}.</p>
+  {% endif %}
+  <p>
+    Made with
+    {% if show_sphinx %}
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    {% endif %}
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
