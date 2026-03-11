@@ -15,6 +15,7 @@ include { BIN_QC } from '../subworkflows/local/bin_qc'
 include { DOMAIN_CLASSIFICATION } from '../subworkflows/local/domain_classification'
 include { BIN_ANNOTATION } from '../subworkflows/local/bin_annotation'
 include { BIN_CLASSIFICATION } from '../subworkflows/local/bin_classification'
+include { GUNZIP as GUNZIP_ASSEMBLIES } from '../modules/nf-core/gunzip/main'
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
@@ -46,6 +47,38 @@ def createCsvInputChannel(input_path) {
         }
 }
 
+// Function to create assembly input channel from CSV
+def createAssemblyInputChannel(input_path) {
+    return Channel
+        .fromPath(input_path)
+        .splitCsv(header:true, sep:',', strip:true)
+        .map { row ->
+            def meta = [:]
+            meta.id = row.sample_id ?: "sample_${System.currentTimeMillis()}"
+            meta.run_id = row.run_id ?: 'default_run'
+            meta.group = row.group ?: 'default_group'
+            
+            def assembler = row.assembler?.trim()
+            if (!assembler) {
+                exit 1, "Missing assembler for sample ${meta.id}. Please specify the assembler used (e.g., MEGAHIT, SPAdes, IDBA-UD, etc.)"
+            }
+            meta.assembler = assembler
+            
+            def fasta_path = row.fasta?.trim()
+            if (!fasta_path) {
+                exit 1, "Missing fasta file path for sample ${meta.id}"
+            }
+            
+            def fasta_file = file(fasta_path)
+            if (!fasta_file.exists()) {
+                exit 1, "Fasta file does not exist for sample ${meta.id}: ${fasta_path}"
+            }
+            
+            return tuple(meta, fasta_file)
+        }
+}
+
+
 workflow METAFLOW {
     main:
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
@@ -54,6 +87,18 @@ workflow METAFLOW {
             true,
             "${projectDir}/nextflow_schema.json"
         )
+
+        // Preflight: validate assembly_input usage
+        if (params.assembly_input) {
+            if (params.input_format != 'csv') {
+                exit 1, "ERROR: --assembly_input requires --input_format to be 'csv'. Current value: ${params.input_format}"
+            }
+            if (params.enable_readbase) {
+                exit 1, "ERROR: --assembly_input is not compatible with read-based profiling (--enable_readbase). Use assembly-based workflows only."
+            }
+            log.warn "⚠️  Pre-computed assemblies provided. Skipping preprocessing and assembly steps, jumping straight to binning."
+            log.warn "⚠️  All preprocessing steps (fastp, hostile) will be skipped. Ensure input reads are already cleaned."
+        }
 
         // Preflight: normalize optional params + warnings
         def checkm2_db = params.checkm2_db?.toString()?.trim()
@@ -67,7 +112,7 @@ workflow METAFLOW {
             }
         }
 
-        // Create input channel
+        // Create input channel for reads
         input_ch = params.input_format == 'csv' ?
             createCsvInputChannel(params.input) :
             Channel.fromFilePairs("${params.input}/*_{1,2}*.{fastq,fastq.gz,fq,fq.gz}")
@@ -76,23 +121,58 @@ workflow METAFLOW {
                     return tuple(meta, reads)
                 }
 
-        // Conditional preprocessing
+        // Handle pre-computed assemblies or preprocessing
         def cleaned_reads_source
-        if (!params.skip_preprocess) {
-            PREPROCESS(input_ch)
-            cleaned_reads_source = PREPROCESS.out.cleaned_reads
-        } else {
-            // When skip_preprocess is true, use raw input reads directly
+        def assembly_megahit_contigs_ch = Channel.empty()
+        def assembly_metaspades_contigs_ch = Channel.empty()
+        def assembly_versions_ch = Channel.empty()
+
+        if (params.assembly_input) {
+            // Use pre-computed assemblies - skip preprocessing
             cleaned_reads_source = input_ch
+            
+            // Parse assembly input CSV
+            assembly_input_ch = createAssemblyInputChannel(params.assembly_input)
+            
+            // Separate compressed and uncompressed assemblies
+            assembly_splits = assembly_input_ch
+                .branch {
+                    compressed: it[1].name.endsWith('.gz')
+                    uncompressed: true
+                }
+            
+            // Decompress gzipped assemblies
+            GUNZIP_ASSEMBLIES(assembly_splits.compressed)
+            assembly_decompressed = GUNZIP_ASSEMBLIES.out.gunzip
+            
+            // Combine decompressed and already uncompressed assemblies
+            assembly_final_ch = assembly_decompressed.mix(assembly_splits.uncompressed)
+            
+            // All pre-computed assemblies go into megahit channel (used as generic assembly channel)
+            // The actual assembler name is preserved in meta.assembler as metadata
+            assembly_megahit_contigs_ch = assembly_final_ch
+            
+        } else {
+            // Normal preprocessing path
+            if (!params.skip_preprocess) {
+                PREPROCESS(input_ch)
+                cleaned_reads_source = PREPROCESS.out.cleaned_reads
+            } else {
+                // When skip_preprocess is true, use raw input reads directly
+                cleaned_reads_source = input_ch
+            }
+            
+            // Run assembly if not using pre-computed assemblies
+            ASSEMBLY_BASED(cleaned_reads_source)
+            assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
+            assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
+            assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
         }
 
         // Initialize empty channels with default values
         def read_based_versions_ch = Channel.empty()
         def read_based_results_ch = Channel.empty()
         def read_based_rgi_ch = Channel.empty()
-        def assembly_versions_ch = Channel.empty()
-        def assembly_megahit_contigs_ch = Channel.empty()
-        def assembly_metaspades_contigs_ch = Channel.empty()
         def binning_bam_ch = Channel.empty()
         def binning_versions_ch = Channel.empty()
         def binning_bins_ch = Channel.empty()
@@ -122,12 +202,7 @@ workflow METAFLOW {
                 read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
             }
         } else {
-            ASSEMBLY_BASED(cleaned_reads_source)
-            assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
-            assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
-            assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
-
-            // Run BINNING_BAMABUND with assembly outputs
+            // Assembly-based pathway
             def all_assemblies = assembly_megahit_contigs_ch.mix(assembly_metaspades_contigs_ch)
             
             if (!params.skip_binning_bamabund) {

@@ -34,6 +34,12 @@
                     "default": "copy",
                     "description": "Method used to save pipeline results",
                     "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
+                },
+                "assembly_input": {
+                    "type": "string",
+                    "exists": true,
+                    "description": "Path to CSV file containing pre-computed assemblies (optional). Skips preprocessing and assembly steps. Required columns: sample_id, run_id, group, assembler, fasta",
+                    "help_text": "When supplied, only binning and downstream workflows are run. Must be used with --input_format csv. Reads must also be provided via --input parameter"
                 }
             }
         },
