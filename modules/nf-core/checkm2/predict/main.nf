@@ -14,7 +14,7 @@ process CHECKM2_PREDICT {
     output:
     tuple val(meta), path("${prefix}")                   , emit: checkm2_output
     tuple val(meta), path("${prefix}_checkm2_report.tsv"), emit: checkm2_tsv
-    path("versions.yml")                                 , emit: versions
+    path "versions.yml"                                  , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -35,7 +35,7 @@ process CHECKM2_PREDICT {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        checkm2: \$(checkm2 --version)
+        checkm2: \$(checkm2 --version | sed 's/checkm2, version //')
     END_VERSIONS
     """
 
@@ -47,7 +47,7 @@ process CHECKM2_PREDICT {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        checkm2: \$(checkm2 --version)
+        checkm2: 1.1.0
     END_VERSIONS
     """
 }

@@ -57,12 +57,12 @@
           },
           "checkm2/databasedownload": {
             "branch": "master",
-            "git_sha": "bcba09053293bbc4fcfecbe094af6d0127f2e0ec",
+            "git_sha": "81470b59ebadb3d01dcfcd37d44f88eb890f4851",
             "installed_by": ["modules"]
           },
           "checkm2/predict": {
             "branch": "master",
-            "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+            "git_sha": "81470b59ebadb3d01dcfcd37d44f88eb890f4851",
             "installed_by": ["modules"]
           },
           "comebin/runcomebin": {
