@@ -17,6 +17,9 @@ include { BIN_ANNOTATION } from '../subworkflows/local/bin_annotation'
 include { BIN_CLASSIFICATION } from '../subworkflows/local/bin_classification'
 include { GUNZIP as GUNZIP_ASSEMBLIES } from '../modules/nf-core/gunzip/main'
 
+// Import modules for database setup
+include { CHECKM2_DATABASEDOWNLOAD } from '../modules/nf-core/checkm2/databasedownload/main'
+
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
     return Channel
@@ -263,6 +266,35 @@ workflow METAFLOW {
                     }
 
                     // ============================================
+                    // Setup CheckM2 database (if needed)
+                    // ============================================
+                    // CheckM2 database is only required if:
+                    // - Using CheckM2 for bin QC (binqc_tool == 'checkm2'), OR
+                    // - Using Binette for bin refinement (refine_tool == 'binette')
+                    //
+                    // Other combinations like CheckM + DAS_TOOL do NOT need CheckM2 database
+                    // (e.g., CheckM = legacy checkm v1, DAS_TOOL = only needs contig2bin tables)
+                    //
+                    def ch_checkm2_db = Channel.empty()
+                    def needs_checkm2_db = (params.binqc_tool == 'checkm2' && !params.skip_binqc) || 
+                                           (params.refine_tool == 'binette' && !params.skip_binning_refinement)
+                    
+                    if (needs_checkm2_db && !params.checkm2_db) {
+                        // Download CheckM2 database automatically if needed and not provided
+                        log.info "Downloading CheckM2 database for ${params.binqc_tool == 'checkm2' ? 'CheckM2 QC' : ''}${(params.binqc_tool == 'checkm2' && params.refine_tool == 'binette') ? ' and ' : ''}${params.refine_tool == 'binette' ? 'Binette refinement' : ''}"
+                        CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
+                        ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
+                        binning_versions_ch = binning_versions_ch.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
+                    } else if (params.checkm2_db) {
+                        // Use provided CheckM2 database
+                        ch_checkm2_db = Channel.value([[id: 'checkm2_db'], file(params.checkm2_db, checkIfExists: true)])
+                    } else {
+                        // No CheckM2 database needed - create empty channel
+                        // This safely handles cases like: CheckM (v1) + DAS_TOOL, BUSCO + DAS_TOOL, etc.
+                        ch_checkm2_db = Channel.value([[id: 'checkm2_db'], []])
+                    }
+
+                    // ============================================
                     // Run BINNING_REFINEMENT (with domain already set)
                     // ============================================
                     def ch_refined_bins = Channel.empty()
@@ -279,7 +311,7 @@ workflow METAFLOW {
                             }
                             .groupTuple()
 
-                        BINNING_REFINEMENT(all_assemblies, ch_bins_for_refinement)
+                        BINNING_REFINEMENT(all_assemblies, ch_bins_for_refinement, ch_checkm2_db)
                         
                         // IMPORTANT: BINNING_REFINEMENT outputs are GROUPED bins, not individual bins
                         // We need to transpose them to match the raw bins channel format
@@ -345,7 +377,7 @@ workflow METAFLOW {
                             }
                             .groupTuple()
 
-                        BIN_QC(ch_bins_for_qc)
+                        BIN_QC(ch_bins_for_qc, ch_checkm2_db)
                         binqc_versions_ch = BIN_QC.out.versions ?: Channel.empty()
                         binqc_summary_ch = BIN_QC.out.qc_summary ?: Channel.empty()
                         binqc_quast_summary_ch = BIN_QC.out.quast_summary ?: Channel.empty()

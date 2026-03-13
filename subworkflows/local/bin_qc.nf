@@ -7,7 +7,6 @@ nextflow.enable.dsl = 2
 
 // nf-core modules
 include { BUSCO_BUSCO                      } from '../../modules/nf-core/busco/busco/main'
-include { CHECKM2_DATABASEDOWNLOAD         } from '../../modules/nf-core/checkm2/databasedownload/main'
 include { CHECKM_QA                        } from '../../modules/nf-core/checkm/qa/main'
 include { CHECKM_LINEAGEWF                 } from '../../modules/nf-core/checkm/lineagewf/main'
 include { CHECKM2_PREDICT                  } from '../../modules/nf-core/checkm2/predict/main'
@@ -26,7 +25,8 @@ include { ASSEMBLY_STATS } from '../../modules/local/finalize/assemblybased/asse
 
 workflow BIN_QC {
     take:
-    ch_bins // channel: [ val(meta), [path(bins)] ] - from BINNING and/or BINNING_REFINEMENT
+    ch_bins         // channel: [ val(meta), [path(bins)] ] - from BINNING and/or BINNING_REFINEMENT
+    ch_checkm2_db   // channel: CheckM2 database (passed from main workflow)
 
     main:
     ch_qc_summary = []
@@ -67,16 +67,11 @@ workflow BIN_QC {
     }
 
     // CheckM2 database setup
-    if (params.checkm2_db) {
-        ch_checkm2_db = [[id: 'checkm2_db'], file(params.checkm2_db, checkIfExists: true)]
-    } else if (params.binqc_tool == 'checkm2') {
-        CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
-        ch_versions = ch_versions.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
-        ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
-    } else {
-        ch_checkm2_db = [[id: 'checkm2_db'], []]
-    }
-
+    // Database is passed from main workflow to avoid duplicate downloads
+    // NOTE: This is only used if params.binqc_tool == 'checkm2'
+    // Other tools (CheckM v1, BUSCO) do NOT require this database
+    // ch_checkm2_db will be an empty channel if not needed
+    
     // GUNC database setup
     if (params.gunc_db) {
         ch_gunc_db = file(params.gunc_db, checkIfExists: true)

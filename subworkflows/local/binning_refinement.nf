@@ -12,12 +12,12 @@ include { DASTOOL_DASTOOL                                         } from '../../
 include { BINETTE_BINETTE                                         } from '../../modules/local/binette/binette/main.nf'
 include { RENAME_PREBINREFINE                                     } from '../../modules/local/rename/prebinrefine/main.nf'
 include { RENAME_POSTBINREFINE                                    } from '../../modules/local/rename/postbinrefine/main.nf'
-include { CHECKM2_DATABASEDOWNLOAD                             } from '../../modules/nf-core/checkm2/databasedownload/main'
 
 workflow BINNING_REFINEMENT {
     take:
     assemblies      // channel: [ val(meta), path(contigs) ]
     all_bins        // channel: [ val(meta), path(bins) ] - from BINNING.out.all_bins
+    ch_checkm2_db   // channel: CheckM2 database (passed from main workflow)
 
     main:
     ch_versions = Channel.empty()
@@ -108,14 +108,11 @@ workflow BINNING_REFINEMENT {
                 [meta_refined, bins]
             }
     } else if (params.refine_tool == 'binette') {
-        // CheckM2 database setup (matching BIN_QC pattern)
-        if (params.checkm2_db) {
-            ch_checkm2_db = Channel.value(file(params.checkm2_db, checkIfExists: true))
-        } else {
-            CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
-            ch_versions = ch_versions.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
-            ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database.map { meta, db -> db }
-        }
+        // Use CheckM2 database passed from main workflow (required for Binette)
+        // Database setup is handled in the main metaflow.nf to avoid duplicate downloads
+        // NOTE: ch_checkm2_db will contain the database ONLY if needed by main workflow
+        //       (i.e., when binqc_tool == 'checkm2' OR refine_tool == 'binette')
+        //       Other refinement tools like DAS_TOOL do NOT reach this code path
 
         // Prepare input for Binette
         ch_input_for_binette = assemblies
