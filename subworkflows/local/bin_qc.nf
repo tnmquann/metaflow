@@ -56,14 +56,14 @@ workflow BIN_QC {
 
     // CheckM database setup
     if (params.checkm_db) {
-        ch_checkm_db = file(params.checkm_db, checkIfExists: true)
+        ch_checkm_db = Channel.value(file(params.checkm_db, checkIfExists: true))
     } else if (params.binqc_tool == 'checkm') {
-        ch_checkm_db = [[id: 'checkm_db'], file(params.checkm_download_url, checkIfExists: true)]
-        CHECKM_UNTAR(ch_checkm_db)
+        ch_checkm_db_archive = [[id: 'checkm_db'], file(params.checkm_download_url, checkIfExists: true)]
+        CHECKM_UNTAR(ch_checkm_db_archive)
         ch_versions = ch_versions.mix(CHECKM_UNTAR.out.versions)
-        ch_checkm_db = CHECKM_UNTAR.out.untar.map { it[1] }
+        ch_checkm_db = CHECKM_UNTAR.out.untar.map { it[1] }.first()
     } else {
-        ch_checkm_db = []
+        ch_checkm_db = Channel.value([])
     }
 
     // CheckM2 database setup
@@ -173,8 +173,9 @@ workflow BIN_QC {
         // Prepare input for CHECKM_QA by joining checkm_output and marker_file
         ch_checkmqa_input = CHECKM_LINEAGEWF.out.checkm_output
             .join(CHECKM_LINEAGEWF.out.marker_file)
-            .map { meta, dir, marker ->
-                [meta, dir, marker, ch_checkm_db ?: []]
+            .combine(ch_checkm_db)
+            .map { meta, dir, marker, checkm_db_path ->
+                [meta, dir, marker, checkm_db_path]
             }
 
         // Run CheckM QA with checkm_db staged as coverage_file
@@ -196,7 +197,18 @@ workflow BIN_QC {
                 [meta, bin_list]
             }
 
-        CHECKM2_PREDICT(ch_bins_for_checkm2, ch_checkm2_db)
+        // CHECKM2_PREDICT expects: tuple val(dbmeta), path(db)
+        // Main workflow may pass only a plain db path, so normalize it here.
+        ch_checkm2_db_for_predict = ch_checkm2_db
+            .map { db_entry ->
+                if (db_entry instanceof List && db_entry.size() == 2) {
+                    [db_entry[0], db_entry[1]]
+                } else {
+                    [[id: 'checkm2_db'], db_entry]
+                }
+            }
+
+        CHECKM2_PREDICT(ch_bins_for_checkm2, ch_checkm2_db_for_predict)
         ch_versions = ch_versions.mix(CHECKM2_PREDICT.out.versions)
 
         ch_qc_summaries = CHECKM2_PREDICT.out.checkm2_tsv

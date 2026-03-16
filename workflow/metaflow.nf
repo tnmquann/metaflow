@@ -283,15 +283,16 @@ workflow METAFLOW {
                         // Download CheckM2 database automatically if needed and not provided
                         log.info "Downloading CheckM2 database for ${params.binqc_tool == 'checkm2' ? 'CheckM2 QC' : ''}${(params.binqc_tool == 'checkm2' && params.refine_tool == 'binette') ? ' and ' : ''}${params.refine_tool == 'binette' ? 'Binette refinement' : ''}"
                         CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
-                        ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
+                        // Extract just the database path from the tuple (meta, path)
+                        ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database.map { meta, db -> db }
                         binning_versions_ch = binning_versions_ch.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
                     } else if (params.checkm2_db) {
-                        // Use provided CheckM2 database
-                        ch_checkm2_db = Channel.value([[id: 'checkm2_db'], file(params.checkm2_db, checkIfExists: true)])
+                        // Use provided CheckM2 database - pass just the path
+                        ch_checkm2_db = Channel.value(file(params.checkm2_db, checkIfExists: true))
                     } else {
-                        // No CheckM2 database needed - create empty channel
+                        // No CheckM2 database needed - create empty channel with null value
                         // This safely handles cases like: CheckM (v1) + DAS_TOOL, BUSCO + DAS_TOOL, etc.
-                        ch_checkm2_db = Channel.value([[id: 'checkm2_db'], []])
+                        ch_checkm2_db = Channel.value([])
                     }
 
                     // ============================================
@@ -425,8 +426,13 @@ workflow METAFLOW {
             }
             cleanup_sources = cleanup_sources.findAll { it }
             if (cleanup_sources) {
-                def cleanup_trigger = Channel.merge(*cleanup_sources).collect()
-                CLEANUP(cleanup_trigger)
+                def cleanup_trigger = cleanup_sources[0]
+                if (cleanup_sources.size() > 1) {
+                    cleanup_sources.drop(1).each { ch ->
+                        cleanup_trigger = cleanup_trigger.mix(ch)
+                    }
+                }
+                CLEANUP(cleanup_trigger.collect())
             }
         }
 
