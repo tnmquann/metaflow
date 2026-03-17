@@ -141,7 +141,7 @@ workflow METAFLOW {
             assembly_splits = assembly_input_ch
                 .branch {
                     compressed: it[1].name.endsWith('.gz')
-                    uncompressed: true
+                    uncompressed: !it[1].name.endsWith('.gz')
                 }
             
             // Decompress gzipped assemblies
