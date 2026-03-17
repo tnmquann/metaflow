@@ -164,12 +164,6 @@ workflow METAFLOW {
                 // When skip_preprocess is true, use raw input reads directly
                 cleaned_reads_source = input_ch
             }
-            
-            // Run assembly if not using pre-computed assemblies
-            ASSEMBLY_BASED(cleaned_reads_source)
-            assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
-            assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
-            assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
         }
 
         // Initialize empty channels with default values
@@ -206,6 +200,13 @@ workflow METAFLOW {
             }
         } else {
             // Assembly-based pathway
+            if (!params.assembly_input) {
+                ASSEMBLY_BASED(cleaned_reads_source)
+                assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
+                assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
+                assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
+            }
+
             def all_assemblies = assembly_megahit_contigs_ch.mix(assembly_metaspades_contigs_ch)
             
             if (!params.skip_binning_bamabund) {
