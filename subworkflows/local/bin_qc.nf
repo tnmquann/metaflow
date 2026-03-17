@@ -199,8 +199,6 @@ workflow BIN_QC {
 
         // CHECKM2_PREDICT expects: tuple val(dbmeta), path(db)
         // Main workflow may pass only a plain db path, so normalize it here.
-        // Use .first() to broadcast the single DB entry as a value channel so
-        // all bins tuples are processed (avoids zip-semantics data loss).
         ch_checkm2_db_for_predict = ch_checkm2_db
             .map { db_entry ->
                 if (db_entry instanceof List && db_entry.size() == 2) {
@@ -209,7 +207,6 @@ workflow BIN_QC {
                     [[id: 'checkm2_db'], db_entry]
                 }
             }
-            .first()
 
         CHECKM2_PREDICT(ch_bins_for_checkm2, ch_checkm2_db_for_predict)
         ch_versions = ch_versions.mix(CHECKM2_PREDICT.out.versions)

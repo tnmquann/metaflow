@@ -133,14 +133,9 @@ workflow BINNING_REFINEMENT {
                 [meta_new, assembly, contig2bin_files, []]
             }
 
-        // Normalize CheckM2 database channel to a value/broadcast channel to avoid zipping
-        ch_checkm2_db_broadcast = ch_checkm2_db
-            .first()
-            .broadcast()
-
         BINETTE_BINETTE(
             ch_input_for_binette,
-            ch_checkm2_db_broadcast
+            ch_checkm2_db
         )
         ch_versions = ch_versions.mix(BINETTE_BINETTE.out.versions)
 

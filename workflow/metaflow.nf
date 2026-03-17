@@ -288,7 +288,6 @@ workflow METAFLOW {
                         // convert it to a value channel (single shared DB for all downstream tasks)
                         ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
                                                         .map { meta, db -> db }
-                                                        .first()
                         binning_versions_ch = binning_versions_ch.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
                     } else if (params.checkm2_db) {
                         // Use provided CheckM2 database - pass just the path
