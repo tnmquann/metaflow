@@ -283,8 +283,11 @@ workflow METAFLOW {
                         // Download CheckM2 database automatically if needed and not provided
                         log.info "Downloading CheckM2 database for ${params.binqc_tool == 'checkm2' ? 'CheckM2 QC' : ''}${(params.binqc_tool == 'checkm2' && params.refine_tool == 'binette') ? ' and ' : ''}${params.refine_tool == 'binette' ? 'Binette refinement' : ''}"
                         CHECKM2_DATABASEDOWNLOAD(params.checkm2_db_version)
-                        // Extract just the database path from the tuple (meta, path)
-                        ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database.map { meta, db -> db }
+                        // Extract just the database path from the tuple (meta, path) and
+                        // convert it to a value channel (single shared DB for all downstream tasks)
+                        ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
+                                                        .map { meta, db -> db }
+                                                        .first()
                         binning_versions_ch = binning_versions_ch.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
                     } else if (params.checkm2_db) {
                         // Use provided CheckM2 database - pass just the path
