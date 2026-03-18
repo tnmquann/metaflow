@@ -4,8 +4,8 @@ process RGI_BWT {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/rgi:6.0.3--pyha8f3691_1':
-        'biocontainers/rgi:6.0.3--pyha8f3691_1' }"
+        'community.wave.seqera.io/library/rgi_aria2:a94e11e18f7348f4':
+        'biocontainers/rgi:6.0.5--pyh05cac1d_0' }"
 
     input:
     tuple val(meta), path(reads1), path(reads2)  // meta, forward_reads, reverse_reads
@@ -48,7 +48,7 @@ process RGI_BWT {
     
     # Set default RGI bwt options (can be overridden by args)
     DEFAULT_ARGS="--local -a kma --clean"
-    
+    rm -rf ./localDB/bwt/card_wildcard_reference/kma
     # Run RGI BWT
     rgi bwt \\
         -1 ${reads1} \\
