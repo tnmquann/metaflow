@@ -218,8 +218,8 @@ nextflow_process {
                 // Check versions file format
                 {
                     def versions_content = path(process.out.versions.get(0)).text
-                    assert versions_content.contains('"rgi":')
-                    assert versions_content.contains('"rgi-database":')
+                    assert versions_content.contains('rgi:')
+                    assert versions_content.contains('rgi-database:')
                 }
             )
         }

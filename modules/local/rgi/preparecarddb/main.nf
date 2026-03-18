@@ -3,16 +3,14 @@ process RGI_PREPARECARDDB {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/rgi:6.0.3--pyha8f3691_1':
-        'biocontainers/rgi:6.0.3--pyha8f3691_1' }"
+        'community.wave.seqera.io/library/rgi_aria2:a94e11e18f7348f4':
+        'biocontainers/rgi:6.0.5--pyh05cac1d_0' }"
 
     input:
     path card, stageAs: 'input_card/*'  // Optional input
 
     output:
     path("rgi_db"), emit: db
-    env RGI_VERSION, emit: tool_version
-    env DB_VERSION, emit: db_version
     path "versions.yml", emit: versions
 
     when:
@@ -20,10 +18,33 @@ process RGI_PREPARECARDDB {
 
     script:
     def args = task.ext.args ?: ''
+    def download_threads = 8
 
     """
     # Create output directory
     mkdir -p ./rgi_db
+    DB_VERSION=""
+    RGI_VERSION=""
+
+    download_file() {
+        local output_file="\$1"
+        local url="\$2"
+
+        if command -v aria2c >/dev/null 2>&1; then
+            aria2c \\
+                --allow-overwrite=true \\
+                --continue=true \\
+                --file-allocation=none \\
+                --max-connection-per-server=${download_threads} \\
+                --split=${download_threads} \\
+                --min-split-size=1M \\
+                --dir=. \\
+                --out="\${output_file}" \\
+                "\${url}"
+        else
+            wget -O "\${output_file}" "\${url}"
+        fi
+    }
 
     # Check if input was provided
     if [ -d "input_card" ] && [ "\$(ls -A input_card 2>/dev/null)" ]; then
@@ -73,14 +94,15 @@ process RGI_PREPARECARDDB {
         echo "No input provided, downloading and processing CARD data..."
         
         # Download and extract CARD data
-        wget -O card_data.tar.bz2 https://card.mcmaster.ca/latest/data || {
+        download_file card_data.tar.bz2 https://card.mcmaster.ca/latest/data || {
             echo "ERROR: Failed to download CARD data" >&2
             exit 1
         }
-        tar -xvf card_data.tar.bz2 -C ./rgi_db/ || {
+        tar -xjf card_data.tar.bz2 -C ./rgi_db/ || {
             echo "ERROR: Failed to extract CARD data" >&2
             exit 1
         }
+        rm -f card_data.tar.bz2
         cd ./rgi_db
 
         # Verify card.json exists
@@ -105,7 +127,7 @@ process RGI_PREPARECARDDB {
         fi
 
         # Download and extract wildcard data
-        wget -O wildcard_data.tar.bz2 https://card.mcmaster.ca/latest/variants || {
+        download_file wildcard_data.tar.bz2 https://card.mcmaster.ca/latest/variants || {
             echo "ERROR: Failed to download wildcard data" >&2
             exit 1
         }
@@ -114,6 +136,7 @@ process RGI_PREPARECARDDB {
             echo "ERROR: Failed to extract wildcard data" >&2
             exit 1
         }
+        rm -f wildcard_data.tar.bz2
 
         # Extract wildcard .gz files if they exist
         if [ -d "wildcard" ] && [ "\$(ls -A wildcard/*.gz 2>/dev/null)" ]; then
@@ -149,12 +172,14 @@ process RGI_PREPARECARDDB {
     # Get tool version
     cd ..
     RGI_VERSION=\$(rgi main --version 2>/dev/null || echo "unknown")
+    export DB_VERSION
+    export RGI_VERSION
 
     # Create versions file
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
+        rgi: \${RGI_VERSION}
+        rgi-database: \${DB_VERSION}
     END_VERSIONS
     """
 
@@ -183,11 +208,13 @@ process RGI_PREPARECARDDB {
     # Get version with fallback
     RGI_VERSION=\$(rgi main --version 2>/dev/null || echo "rgi-stub")
     DB_VERSION="4.0.1"
+    export DB_VERSION
+    export RGI_VERSION
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        rgi: \$(echo \$RGI_VERSION)
-        rgi-database: \$(echo \$DB_VERSION)
+        rgi: \${RGI_VERSION}
+        rgi-database: \${DB_VERSION}
     END_VERSIONS
     """
 }
