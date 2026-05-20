@@ -773,6 +773,26 @@
                     "fa_icon": "far calendar",
                     "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
                     "hidden": true
+                },
+                "processed_results_dir": {
+                    "type": "string",
+                    "description": "Internal publish directory for processed read-based results.",
+                    "hidden": true
+                },
+                "yacht_results_dir": {
+                    "type": "string",
+                    "description": "Internal publish directory for YACHT read-based results.",
+                    "hidden": true
+                },
+                "bins_csv_dir": {
+                    "type": "string",
+                    "description": "Internal publish directory for Sourmash bin CSV files.",
+                    "hidden": true
+                },
+                "sketches_dir": {
+                    "type": "string",
+                    "description": "Internal publish directory for Sourmash sketch files.",
+                    "hidden": true
                 }
             }
         },

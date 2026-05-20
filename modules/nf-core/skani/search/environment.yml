@@ -3,4 +3,4 @@ channels:
   - bioconda
 
 dependencies:
-  - bioconda::skani=0.3.0
+  - bioconda::skani=0.2.2

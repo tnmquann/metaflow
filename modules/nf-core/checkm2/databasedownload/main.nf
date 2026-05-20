@@ -15,7 +15,7 @@ process CHECKM2_DATABASEDOWNLOAD {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/95/95c0d3d867f5bc805b926b08ee761a993b24062739743eb82cc56363e0f7817d/data':
         'community.wave.seqera.io/library/aria2:1.37.0--3a9ec328469995dd' }"
 
@@ -24,7 +24,7 @@ process CHECKM2_DATABASEDOWNLOAD {
 
     output:
     tuple val(meta), path("checkm2_db_v${db_version}.dmnd"), emit: database
-    path "versions.yml"                                     , emit: versions
+    tuple val("${task.process}"), val('aria2'), eval("aria2c --version 2>&1 | sed '1s/[^ ]* [^ ]* //; q'"), topic: versions, emit: versions_checkm2_databasedownload
 
     when:
     task.ext.when == null || task.ext.when
@@ -54,11 +54,6 @@ process CHECKM2_DATABASEDOWNLOAD {
 
     # cleanup
     rm -f checkm2_database.tar.gz
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        aria2: \$(aria2c --version 2>&1 | sed '1s/[^ ]* [^ ]* //; q')
-    END_VERSIONS
     """
 
     stub:
@@ -66,10 +61,5 @@ process CHECKM2_DATABASEDOWNLOAD {
     meta       = [id: 'checkm2_db', version: db_version]
     """
     touch checkm2_db_v${db_version}.dmnd
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        aria2: 0.0.0
-    END_VERSIONS
     """
 }
