@@ -106,17 +106,17 @@ workflow BINNING_BAMABUND {
         [[id: 'null'], []],
         'bai'
     )
-    versions_ch = versions_ch.mix(SAMTOOLS_SORT.out.versions)
+    versions_ch = versions_ch.mix(SAMTOOLS_SORT.out.versions_samtools)
 
     // Index sorted BAM files
     SAMTOOLS_INDEX(
         SAMTOOLS_SORT.out.bam
     )
-    versions_ch = versions_ch.mix(SAMTOOLS_INDEX.out.versions)
+    versions_ch = versions_ch.mix(SAMTOOLS_INDEX.out.versions_samtools)
 
     // Group BAM/BAI by assembly (removing reads_id from grouping key)
     ch_sorted_bam_bai = SAMTOOLS_SORT.out.bam
-        .join(SAMTOOLS_INDEX.out.bai, by: 0)
+        .join(SAMTOOLS_INDEX.out.index, by: 0)
         .map { meta, bam, bai ->
             // Create grouping key without reads_id
             def group_meta = meta.clone()
@@ -131,7 +131,7 @@ workflow BINNING_BAMABUND {
 
     emit:
     bam         = SAMTOOLS_SORT.out.bam
-    bai         = SAMTOOLS_INDEX.out.bai
+    bai         = SAMTOOLS_INDEX.out.index
     bam_bai     = ch_sorted_bam_bai
     versions    = versions_ch
 }

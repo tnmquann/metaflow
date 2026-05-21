@@ -73,7 +73,7 @@ workflow CONTIG_ANALYSIS {
     if (!params.skip_tiara_contigqc) {
         TIARA_TIARA(ch_assemblies)
         ch_tiara_results = TIARA_TIARA.out.classifications
-        ch_versions = ch_versions.mix(TIARA_TIARA.out.versions)
+        ch_versions = ch_versions.mix(TIARA_TIARA.out.versions_tiara)
     }
 
     // Step 7 (optional): SKANI search for ANI-based classification
@@ -102,7 +102,7 @@ workflow CONTIG_ANALYSIS {
         } else {
             GENOMAD_DOWNLOAD()
             ch_genomad_db = GENOMAD_DOWNLOAD.out.genomad_db
-            ch_versions = ch_versions.mix(GENOMAD_DOWNLOAD.out.versions)
+            ch_versions = ch_versions.mix(GENOMAD_DOWNLOAD.out.versions_genomad)
             
             if (params.save_genomad_db) {
                 log.info "geNomad database downloaded and will be saved to output directory."
@@ -112,7 +112,7 @@ workflow CONTIG_ANALYSIS {
         GENOMAD_ENDTOEND(ch_assemblies, ch_genomad_db)
         ch_genomad_plasmid_summary = GENOMAD_ENDTOEND.out.plasmid_summary
         ch_genomad_virus_summary = GENOMAD_ENDTOEND.out.virus_summary
-        ch_versions = ch_versions.mix(GENOMAD_ENDTOEND.out.versions)
+        ch_versions = ch_versions.mix(GENOMAD_ENDTOEND.out.versions_genomad)
     }
 
     // Step 9 (optional): Contig Annotation
@@ -132,10 +132,10 @@ workflow CONTIG_ANALYSIS {
             ch_annotation_fna = GUNZIP_PYRODIGAL_FNA.out.gunzip
             ch_annotation_gbk = GUNZIP_PYRODIGAL_GBK.out.gunzip
             
-            ch_versions = ch_versions.mix(PYRODIGAL.out.versions)
-            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_FAA.out.versions)
-            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_FNA.out.versions)
-            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_GBK.out.versions)
+            ch_versions = ch_versions.mix(PYRODIGAL.out.versions_pyrodigal)
+            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_FAA.out.versions_gunzip)
+            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_FNA.out.versions_gunzip)
+            ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_GBK.out.versions_gunzip)
             
         } else if (params.annotation_tool == 'prokka') {
             PROKKA(ch_assemblies, [], [])

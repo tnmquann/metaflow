@@ -76,7 +76,7 @@ workflow BIN_CLASSIFICATION {
         SOURMASH_FASTMULTIGATHER_BINS.out.gather_csv,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
     )
-    ch_versions = ch_versions.mix(SOURMASH_TAXANNOTATE.out.versions.first())
+    ch_versions = ch_versions.mix(SOURMASH_TAXANNOTATE.out.versions_sourmash.first())
 
     // Step 5: Run sourmash tax genome
     // Input: TAXANNOTATE output (with-lineages.csv.gz)

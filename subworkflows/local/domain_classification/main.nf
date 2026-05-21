@@ -19,7 +19,7 @@ workflow DOMAIN_CLASSIFICATION {
 
     // Run Tiara on assemblies for domain classification
     TIARA_TIARA(ch_assemblies)
-    ch_versions = ch_versions.mix(TIARA_TIARA.out.versions)
+    ch_versions = ch_versions.mix(TIARA_TIARA.out.versions_tiara)
 
     // Add bin type metadata to distinguish bins
     ch_bins_with_type = ch_bins.map { meta, bin_list ->
@@ -33,7 +33,7 @@ workflow DOMAIN_CLASSIFICATION {
 
     // Generate contig2bin files for each bin group
     DASTOOL_FASTATOCONTIG2BIN_TIARA(ch_bins_with_type, 'fa')
-    ch_versions = ch_versions.mix(DASTOOL_FASTATOCONTIG2BIN_TIARA.out.versions)
+    ch_versions = ch_versions.mix(DASTOOL_FASTATOCONTIG2BIN_TIARA.out.versions_dastool)
 
     // FIX: Follow MAG pipeline pattern - combine bins with contig2bin FIRST
     ch_contigs_to_bin_tiara = DASTOOL_FASTATOCONTIG2BIN_TIARA.out.fastatocontig2bin
@@ -137,7 +137,7 @@ workflow DOMAIN_CLASSIFICATION {
         .map { files -> [[:], files] }  // Create tuple with empty meta and file list
 
     TIARA_SUMMARY(ch_bin_classifications, 'tsv', 'tsv')
-    ch_versions = ch_versions.mix(TIARA_SUMMARY.out.versions)
+    ch_versions = ch_versions.mix(TIARA_SUMMARY.out.versions_csvtk)
 
     emit:
     classified_bins = ch_classified_bins

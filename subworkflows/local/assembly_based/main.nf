@@ -27,7 +27,7 @@ workflow ASSEMBLY_BASED {
         }
 
         MEGAHIT(ch_megahit_input)
-        versions_ch = versions_ch.mix(MEGAHIT.out.versions)
+        versions_ch = versions_ch.mix(MEGAHIT.out.versions_megahit)
         ch_megahit_outputs = MEGAHIT.out.contigs.map { meta, assembly ->
             def meta_new = meta + [assembler: 'MEGAHIT']
             [meta_new, assembly]
@@ -46,7 +46,7 @@ workflow ASSEMBLY_BASED {
         }
 
         METASPADES(ch_spades_input, [], [])
-        versions_ch = versions_ch.mix(METASPADES.out.versions)
+        versions_ch = versions_ch.mix(METASPADES.out.versions_spades)
         ch_metaspades_outputs = METASPADES.out.contigs.map { meta, assembly ->
             def meta_new = meta + [assembler: 'SPAdes']
             [meta_new, assembly]

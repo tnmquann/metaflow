@@ -73,7 +73,7 @@ workflow READ_BASED_SINGLERUN {
     // Step 2: Run sourmash sketch (per sample)
     // Input: merged sequence from each sample
     SOURMASH_SKETCH_META(MERGE_PAIREDENDSEQS.out.merged_seqs)
-    versions_ch = versions_ch.mix(SOURMASH_SKETCH_META.out.versions.first())
+    versions_ch = versions_ch.mix(SOURMASH_SKETCH_META.out.versions_sourmash.first())
 
     // Step 2b: Convert .sig to .sig.zip for YACHT compatibility
     SOURMASH_SIG_TO_ZIP(SOURMASH_SKETCH_META.out.signatures)
@@ -89,14 +89,14 @@ workflow READ_BASED_SINGLERUN {
         false,  // save_prefetch
         false   // save_prefetch_csv
     )
-    versions_ch = versions_ch.mix(SOURMASH_GATHER_META.out.versions.first())
+    versions_ch = versions_ch.mix(SOURMASH_GATHER_META.out.versions_sourmash.first())
 
     // Step 4: Run sourmash tax annotate (per sample)
     SOURMASH_TAXANNOTATE_META(
         SOURMASH_GATHER_META.out.result,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
     )
-    versions_ch = versions_ch.mix(SOURMASH_TAXANNOTATE_META.out.versions.first())
+    versions_ch = versions_ch.mix(SOURMASH_TAXANNOTATE_META.out.versions_sourmash.first())
 
     // Step 5: Run sourmash tax metagenome (per sample)
     SOURMASH_TAXMETAGENOME_SINGLESKETCH(

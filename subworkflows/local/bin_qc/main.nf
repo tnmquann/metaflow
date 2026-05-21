@@ -47,7 +47,7 @@ workflow BIN_QC {
         // Check if database needs to be extracted
         if (ch_busco_db.toString().endsWith('.tar.gz') || ch_busco_db.toString().endsWith('.tgz')) {
             BUSCO_UNTAR([[id: 'busco_db'], ch_busco_db])
-            ch_versions = ch_versions.mix(BUSCO_UNTAR.out.versions)
+            ch_versions = ch_versions.mix(BUSCO_UNTAR.out.versions_untar)
             ch_busco_db = BUSCO_UNTAR.out.untar.map { untar_output -> untar_output[1] }
         }
     } else {
@@ -60,7 +60,7 @@ workflow BIN_QC {
     } else if (params.binqc_tool == 'checkm') {
         ch_checkm_db_archive = [[id: 'checkm_db'], file(params.checkm_download_url, checkIfExists: true)]
         CHECKM_UNTAR(ch_checkm_db_archive)
-        ch_versions = ch_versions.mix(CHECKM_UNTAR.out.versions)
+        ch_versions = ch_versions.mix(CHECKM_UNTAR.out.versions_untar)
         ch_checkm_db = CHECKM_UNTAR.out.untar.map { untar_output -> untar_output[1] }.first()
     } else {
         ch_checkm_db = channel.value([])
@@ -77,7 +77,7 @@ workflow BIN_QC {
         ch_gunc_db = file(params.gunc_db, checkIfExists: true)
     } else if (params.run_gunc) {
         GUNC_DOWNLOADDB(params.gunc_db_name)
-        ch_versions = ch_versions.mix(GUNC_DOWNLOADDB.out.versions)
+        ch_versions = ch_versions.mix(GUNC_DOWNLOADDB.out.versions_gunc)
         ch_gunc_db = GUNC_DOWNLOADDB.out.db
     } else {
         ch_gunc_db = []
@@ -160,7 +160,7 @@ workflow BIN_QC {
 
         // Decompress gzipped bins
         GUNZIP(ch_bins_for_checkm.compressed)
-        ch_versions = ch_versions.mix(GUNZIP.out.versions)
+        ch_versions = ch_versions.mix(GUNZIP.out.versions_gunzip)
 
         // Combine decompressed and already uncompressed bins
         ch_bins_uncompressed = GUNZIP.out.gunzip
@@ -208,7 +208,7 @@ workflow BIN_QC {
             }
 
         CHECKM2_PREDICT(ch_bins_for_checkm2, ch_checkm2_db_for_predict)
-        ch_versions = ch_versions.mix(CHECKM2_PREDICT.out.versions)
+        ch_versions = ch_versions.mix(CHECKM2_PREDICT.out.versions_checkm2_predict)
 
         ch_qc_summaries = CHECKM2_PREDICT.out.checkm2_tsv
             .map { _meta, summary -> [[id: 'checkm2'], summary] }
@@ -232,7 +232,7 @@ workflow BIN_QC {
            // .transpose()
 
         GUNC_RUN(ch_input_bins_for_gunc, ch_gunc_db)
-        ch_versions = ch_versions.mix(GUNC_RUN.out.versions)
+        ch_versions = ch_versions.mix(GUNC_RUN.out.versions_gunc)
 
         // Make sure to keep directory in sync with modules.conf
         GUNC_RUN.out.maxcss_level_tsv
@@ -247,7 +247,7 @@ workflow BIN_QC {
             ch_input_to_mergecheckm = GUNC_RUN.out.maxcss_level_tsv.combine(CHECKM_QA.out.output, by: 0)
 
             GUNC_MERGECHECKM(ch_input_to_mergecheckm)
-            ch_versions.mix(GUNC_MERGECHECKM.out.versions)
+            ch_versions = ch_versions.mix(GUNC_MERGECHECKM.out.versions_gunc)
 
             // Make sure to keep directory in sync with modules.conf
             GUNC_MERGECHECKM.out.tsv
@@ -268,7 +268,7 @@ workflow BIN_QC {
 
     if (ch_qc_summaries) {
         CONCAT_BINQC_TSV(ch_qc_summaries, 'tsv', 'tsv')
-        ch_versions = ch_versions.mix(CONCAT_BINQC_TSV.out.versions)
+        ch_versions = ch_versions.mix(CONCAT_BINQC_TSV.out.versions_csvtk)
         ch_qc_summary = CONCAT_BINQC_TSV.out.csv.map { _meta, summary -> summary }
     } else {
         ch_qc_summary = channel.empty()

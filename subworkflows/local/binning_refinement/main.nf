@@ -56,7 +56,7 @@ workflow BINNING_REFINEMENT {
     FASTATOCONTIG2BIN_SEMIBIN(ch_renamed_bins.semibin, "fa")
     FASTATOCONTIG2BIN_VAMB(ch_renamed_bins.vamb, "fa")
 
-    ch_versions = ch_versions.mix(FASTATOCONTIG2BIN_METABAT2.out.versions.first())
+    ch_versions = ch_versions.mix(FASTATOCONTIG2BIN_METABAT2.out.versions_dastool.first())
 
     // Collect all contig2bin outputs and group by assembly
     ch_fastatocontig2bin = channel.empty()
@@ -98,7 +98,7 @@ workflow BINNING_REFINEMENT {
 
         // Run DAS Tool for bin refinement
         DASTOOL_DASTOOL(ch_input_for_dastool, [])
-        ch_versions = ch_versions.mix(DASTOOL_DASTOOL.out.versions)
+        ch_versions = ch_versions.mix(DASTOOL_DASTOOL.out.versions_dastool)
 
         // Process DAS Tool outputs
         ch_refined_output = DASTOOL_DASTOOL.out.bins

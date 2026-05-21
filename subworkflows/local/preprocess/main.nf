@@ -18,7 +18,7 @@ workflow PREPROCESS {
 
     // 1. Raw QC
     FASTQC_RAW ( reads_ch )
-    versions_coll = versions_coll.mix(FASTQC_RAW.out.versions)
+    versions_coll = versions_coll.mix(FASTQC_RAW.out.versions_fastqc)
 
     // 2. Trimming with Fastp
     ch_fastp_input = reads_ch.map { meta, reads ->
@@ -35,7 +35,7 @@ workflow PREPROCESS {
 
     // 3. Trimmed QC
     FASTQC_TRIMMED ( FASTP.out.reads )
-    versions_coll = versions_coll.mix(FASTQC_TRIMMED.out.versions)
+    versions_coll = versions_coll.mix(FASTQC_TRIMMED.out.versions_fastqc)
 
     // 4. Host Removal
     ch_hostile_ref_dir = channel.empty()
@@ -63,7 +63,7 @@ workflow PREPROCESS {
 
     // 5. Host-Removed QC
     FASTQC_RMHOST ( HOSTILE_CLEAN.out.fastq )
-    versions_coll = versions_coll.mix(FASTQC_RMHOST.out.versions)
+    versions_coll = versions_coll.mix(FASTQC_RMHOST.out.versions_fastqc)
 
     emit:
     cleaned_reads      = HOSTILE_CLEAN.out.fastq

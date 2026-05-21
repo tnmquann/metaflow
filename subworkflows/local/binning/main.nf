@@ -78,7 +78,7 @@ workflow BINNING {
             }
 
         METABAT2_METABAT2(ch_metabat2_input)
-        versions_ch = versions_ch.mix(METABAT2_METABAT2.out.versions)
+        versions_ch = versions_ch.mix(METABAT2_METABAT2.out.versions_metabat2)
 
         // Process MetaBAT2 bins
         ch_metabat2_bins_raw = METABAT2_METABAT2.out.fasta
@@ -116,7 +116,7 @@ workflow BINNING {
             }
 
         MAXBIN2(ch_maxbin2_input)
-        versions_ch = versions_ch.mix(MAXBIN2.out.versions)
+        versions_ch = versions_ch.mix(MAXBIN2.out.versions_maxbin2)
 
         ch_maxbin2_bins_to_adjust = MAXBIN2.out.binned_fastas
 
@@ -143,7 +143,7 @@ workflow BINNING {
         }
 
         GUNZIP_ASSEMBLIES_CONCOCT(ch_assemblies_for_gunzip)
-        versions_ch = versions_ch.mix(GUNZIP_ASSEMBLIES_CONCOCT.out.versions)
+        versions_ch = versions_ch.mix(GUNZIP_ASSEMBLIES_CONCOCT.out.versions_gunzip)
 
         // Step 2: Prepare multiMap input matching the FASTA_BINNING_CONCOCT signature
         ch_concoct_input = ch_for_binning
@@ -193,7 +193,7 @@ workflow BINNING {
             }
 
         COMEBIN_RUNCOMEBIN(ch_comebin_input)
-        versions_ch = versions_ch.mix(COMEBIN_RUNCOMEBIN.out.versions)
+        versions_ch = versions_ch.mix(COMEBIN_RUNCOMEBIN.out.versions_comebin)
 
         ch_comebin_bins = COMEBIN_RUNCOMEBIN.out.bins
             .transpose()
@@ -242,7 +242,7 @@ workflow BINNING {
             }
 
         VAMB_BIN(ch_vamb_input)
-        versions_ch = versions_ch.mix(VAMB_BIN.out.versions)
+        versions_ch = versions_ch.mix(VAMB_BIN.out.versions_vamb)
 
         ch_vamb_bins = VAMB_BIN.out.bins
             .transpose()

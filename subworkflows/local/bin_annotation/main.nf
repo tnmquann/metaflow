@@ -76,7 +76,7 @@ workflow BIN_ANNOTATION {
             [],  // proteins
             []   // prodigal_tf
         )
-        ch_versions = ch_versions.mix(PROKKA_BINS.out.versions)
+        ch_versions = ch_versions.mix(PROKKA_BINS.out.versions_prokka)
         ch_multiqc_files = ch_multiqc_files.mix(
             PROKKA_BINS.out.txt.map { output -> output[1] }.flatten()
         )

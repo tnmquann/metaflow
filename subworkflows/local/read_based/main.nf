@@ -115,7 +115,7 @@ workflow READ_BASED {
         SOURMASH_FASTMULTIGATHER_META.out.gather_csv,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
     )
-    versions_ch = versions_ch.mix(SOURMASH_TAXANNOTATE_META.out.versions.first())
+    versions_ch = versions_ch.mix(SOURMASH_TAXANNOTATE_META.out.versions_sourmash.first())
 
     ch_taxannotate_decompressed = SOURMASH_TAXANNOTATE_META.out.result
         .map { meta, csv_gz -> [meta, csv_gz] }
