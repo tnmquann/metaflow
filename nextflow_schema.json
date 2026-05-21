@@ -326,6 +326,11 @@
                     "default": true,
                     "description": "Skip VAMB binning"
                 },
+                "exclude_unbins_from_postbinning": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Exclude unbinned contigs from post-binning QC, taxonomic classification, and annotation steps"
+                },
                 "min_contig_size": {
                     "type": "integer",
                     "default": 1500,
@@ -558,6 +563,11 @@
                     "default": false,
                     "description": "Use Prokka fast mode"
                 },
+                "prokka_bins_with_compliance": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Turn on Prokka compliance mode for bin annotation and NCBI/ENA-compatible contig names"
+                },
                 "annotation_bakta_gram": {
                     "type": "string",
                     "default": "?",
@@ -568,6 +578,86 @@
                     "type": "integer",
                     "default": 11,
                     "description": "Translation table for Bakta annotation"
+                },
+                "annotation_bakta_singlemode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use Bakta's genome-length optimized mode instead of metagenome mode"
+                },
+                "annotation_bakta_complete": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Treat all sequences as complete replicons"
+                },
+                "annotation_bakta_renamecontigheaders": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Rewrite the original contig headers in Bakta output"
+                },
+                "annotation_bakta_compliant": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Clean Bakta annotations to standardize them to GenBank/ENA/DDBJ conventions"
+                },
+                "annotation_bakta_trna": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta tRNA detection and annotation"
+                },
+                "annotation_bakta_tmrna": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta tmRNA detection and annotation"
+                },
+                "annotation_bakta_rrna": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta rRNA detection and annotation"
+                },
+                "annotation_bakta_ncrna": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta ncRNA detection and annotation"
+                },
+                "annotation_bakta_ncrnaregion": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta ncRNA region detection and annotation"
+                },
+                "annotation_bakta_crispr": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta CRISPR array detection and annotation"
+                },
+                "annotation_bakta_skipcds": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip Bakta CDS detection and annotation"
+                },
+                "annotation_bakta_pseudo": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta pseudogene detection and annotation"
+                },
+                "annotation_bakta_skipsorf": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip Bakta sORF detection and annotation"
+                },
+                "annotation_bakta_gap": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta gap detection and annotation"
+                },
+                "annotation_bakta_ori": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate Bakta oriC/oriT detection and annotation"
+                },
+                "annotation_bakta_activate_plot": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Activate generation of Bakta circular genome plots"
                 }
             }
         },
@@ -682,6 +772,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Force scan for motifs"
+                },
+                "annotation_pyrodigal_usespecialstopcharacter": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Force Pyrodigal to append asterisks as stop codon indicators"
                 }
             }
         },
@@ -712,6 +807,11 @@
                     "default": true,
                     "description": "Force Genbank/ENA/DDJB compliance for Prokka annotation"
                 },
+                "annotation_prokka_singlemode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use Prokka's genome-length optimized mode instead of metagenome mode"
+                },
                 "annotation_prokka_coverage": {
                     "type": "integer",
                     "default": 80,
@@ -724,6 +824,31 @@
                     "default": 0.000001,
                     "minimum": 0,
                     "description": "E-value cut-off for Prokka similarity searches"
+                },
+                "annotation_prokka_cdsrnaolap": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Allow transfer RNA features to overlap coding sequences in Prokka annotation"
+                },
+                "annotation_prokka_rawproduct": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Suppress Prokka's default clean-up of gene annotation products"
+                },
+                "annotation_prokka_rnammer": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use RNAmmer for Prokka rRNA prediction"
+                },
+                "annotation_prokka_addgenes": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Add gene features for each Prokka CDS hit"
+                },
+                "annotation_prokka_retaincontigheaders": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Retain the input contig names in Prokka output"
                 }
             }
         },

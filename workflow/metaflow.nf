@@ -84,18 +84,20 @@ def createAssemblyInputChannel(input_path) {
 
 workflow METAFLOW {
     main:
+        schema_path = projectDir.name == 'workflow' ? '../nextflow_schema.json' : 'nextflow_schema.json'
+
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
         UTILS_NFSCHEMA_PLUGIN (
             workflow,
             !workflow.preview,
-            projectDir.name == 'workflow' ? '../nextflow_schema.json' : 'nextflow_schema.json',
+            schema_path,
             params.help ?: false,
             params.help_full ?: false,
             params.show_hidden ?: false,
             '',
             '',
             '',
-            null
+            true
         )
 
         // Preflight: validate assembly_input usage
