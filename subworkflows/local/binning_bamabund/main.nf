@@ -103,7 +103,7 @@ workflow BINNING_BAMABUND {
     // Sort BAM files
     SAMTOOLS_SORT(
         ch_mapped_bam,
-        [[id: 'null'], []],
+        [[id: 'null'], [], []],
         'bai'
     )
     versions_ch = versions_ch.mix(SAMTOOLS_SORT.out.versions_samtools)
