@@ -1,0 +1,76 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=2
+
+// Import nf-core modules
+include { FASTQC as FASTQC_RAW     } from '../../../modules/nf-core/fastqc/main'
+include { FASTQC as FASTQC_TRIMMED } from '../../../modules/nf-core/fastqc/main'
+include { FASTQC as FASTQC_RMHOST  } from '../../../modules/nf-core/fastqc/main'
+include { FASTP                     } from '../../../modules/nf-core/fastp/main'
+include { HOSTILE_FETCH             } from '../../../modules/nf-core/hostile/fetch/main'
+include { HOSTILE_CLEAN             } from '../../../modules/nf-core/hostile/clean/main'
+
+workflow PREPROCESS {
+    take:
+    reads_ch // channel: [ val(meta), path(reads) ]
+
+    main:
+    versions_coll = channel.empty()
+
+    // 1. Raw QC
+    FASTQC_RAW ( reads_ch )
+    versions_coll = versions_coll.mix(FASTQC_RAW.out.versions_fastqc)
+
+    // 2. Trimming with Fastp
+    ch_fastp_input = reads_ch.map { meta, reads ->
+        [meta, reads, params.fastp_adapter_fasta ? file(params.fastp_adapter_fasta, checkIfExists: true) : []]
+    }
+
+    FASTP (
+        ch_fastp_input,
+        false,                              // discard_trimmed_pass
+        params.fastp_save_trimmed_fail ?: false,
+        params.fastp_save_merged ?: false
+    )
+    versions_coll = versions_coll.mix(FASTP.out.versions_fastp)
+
+    // 3. Trimmed QC
+    FASTQC_TRIMMED ( FASTP.out.reads )
+    versions_coll = versions_coll.mix(FASTQC_TRIMMED.out.versions_fastqc)
+
+    // 4. Host Removal
+    ch_hostile_ref_dir = channel.empty()
+    if (params.hostile_reference) {
+        // User provided a reference directory
+        def ref_name = params.hostile_ref_name ?: params.hostile_index ?: 'human-t2t-hla'
+        ch_hostile_ref_dir = channel.value([ref_name, file(params.hostile_reference, checkIfExists: true)])
+    } else {
+        // Use HOSTILE_FETCH to download the reference
+        def index_name = params.hostile_index ?: 'human-t2t-hla'
+        HOSTILE_FETCH ( index_name )
+        
+        // HOSTILE_FETCH already outputs [val(index_name), path(reference/)]
+        ch_hostile_ref_dir = HOSTILE_FETCH.out.reference
+        
+        versions_coll = versions_coll.mix(HOSTILE_FETCH.out.versions)
+    }
+
+    // Now ch_hostile_ref_dir is properly formatted as [ref_name, ref_dir]
+    HOSTILE_CLEAN (
+        FASTP.out.reads,
+        ch_hostile_ref_dir
+    )
+    versions_coll = versions_coll.mix(HOSTILE_CLEAN.out.versions_hostile)
+
+    // 5. Host-Removed QC
+    FASTQC_RMHOST ( HOSTILE_CLEAN.out.fastq )
+    versions_coll = versions_coll.mix(FASTQC_RMHOST.out.versions_fastqc)
+
+    emit:
+    cleaned_reads      = HOSTILE_CLEAN.out.fastq
+    versions           = versions_coll.unique().collect()
+    fastqc_raw_zip     = FASTQC_RAW.out.zip
+    fastqc_trimmed_zip = FASTQC_TRIMMED.out.zip
+    fastqc_rmhost_zip  = FASTQC_RMHOST.out.zip
+    fastp_reports      = FASTP.out.json.join(FASTP.out.html).join(FASTP.out.log)
+    hostile_clean_json = HOSTILE_CLEAN.out.json
+}

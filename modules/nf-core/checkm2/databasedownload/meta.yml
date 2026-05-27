@@ -31,11 +31,16 @@ output:
           description: CheckM2 database file
           pattern: "checkm2_db_v*.dmnd"
           ontologies: []
-  versions:
-    - versions.yml:
-        type: file
-        description: File containing software versions
-        pattern: "versions.yml"
+  versions_checkm2_databasedownload:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - aria2:
+          type: string
+          description: The tool name
+      - "aria2c --version 2>&1 | sed '1s/[^ ]* [^ ]* //; q'":
+          type: eval
+          description: The expression to obtain the version of the tool
 
 topics:
   versions:

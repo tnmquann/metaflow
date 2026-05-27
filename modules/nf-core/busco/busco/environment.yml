@@ -5,3 +5,4 @@ channels:
   - bioconda
 dependencies:
   - bioconda::busco=6.0.0
+  - conda-forge::numpy=2.3.5

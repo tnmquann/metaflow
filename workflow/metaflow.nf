@@ -2,19 +2,22 @@
 nextflow.enable.dsl = 2
 
 // Import subworkflows
-include { PREPROCESS } from '../subworkflows/local/preprocess'
-include { READ_BASED } from '../subworkflows/local/read_based'
-include { READ_BASED_SINGLERUN } from '../subworkflows/local/read_based_singlerun'
-include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based'
-include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund'
+include { PREPROCESS } from '../subworkflows/local/preprocess/main'
+include { READ_BASED } from '../subworkflows/local/read_based/main'
+include { READ_BASED_SINGLERUN } from '../subworkflows/local/read_based_singlerun/main'
+include { ASSEMBLY_BASED } from '../subworkflows/local/assembly_based/main'
+include { BINNING_BAMABUND } from '../subworkflows/local/binning_bamabund/main'
 include { CLEANUP } from '../modules/local/cleanup/main'
 include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_plugin/main'
-include { BINNING } from '../subworkflows/local/binning'
-include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement'
-include { BIN_QC } from '../subworkflows/local/bin_qc'
-include { DOMAIN_CLASSIFICATION } from '../subworkflows/local/domain_classification'
-include { BIN_ANNOTATION } from '../subworkflows/local/bin_annotation'
-include { BIN_CLASSIFICATION } from '../subworkflows/local/bin_classification'
+include { BINNING } from '../subworkflows/local/binning/main'
+include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement/main'
+include { BIN_QC } from '../subworkflows/local/bin_qc/main'
+include {
+    DOMAIN_CLASSIFICATION as DOMAIN_CLASSIFICATION_RAW
+    DOMAIN_CLASSIFICATION as DOMAIN_CLASSIFICATION_REFINED
+} from '../subworkflows/local/domain_classification/main'
+include { BIN_ANNOTATION } from '../subworkflows/local/bin_annotation/main'
+include { BIN_CLASSIFICATION } from '../subworkflows/local/bin_classification/main'
 include { GUNZIP as GUNZIP_ASSEMBLIES } from '../modules/nf-core/gunzip/main'
 
 // Import modules for database setup
@@ -22,7 +25,7 @@ include { CHECKM2_DATABASEDOWNLOAD } from '../modules/nf-core/checkm2/databasedo
 
 // Function to create input channel from CSV
 def createCsvInputChannel(input_path) {
-    return Channel
+    return channel
         .fromPath(input_path)
         .splitCsv(header:true, sep:',', strip:true)
         .map { row ->
@@ -52,7 +55,7 @@ def createCsvInputChannel(input_path) {
 
 // Function to create assembly input channel from CSV
 def createAssemblyInputChannel(input_path) {
-    return Channel
+    return channel
         .fromPath(input_path)
         .splitCsv(header:true, sep:',', strip:true)
         .map { row ->
@@ -84,11 +87,20 @@ def createAssemblyInputChannel(input_path) {
 
 workflow METAFLOW {
     main:
+        schema_path = projectDir.name == 'workflow' ? '../nextflow_schema.json' : 'nextflow_schema.json'
+
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
         UTILS_NFSCHEMA_PLUGIN (
             workflow,
-            true,
-            "${projectDir}/nextflow_schema.json"
+            !workflow.preview,
+            schema_path,
+            params.help ?: false,
+            params.help_full ?: false,
+            params.show_hidden ?: false,
+            '',
+            '',
+            '',
+            true
         )
 
         // Preflight: validate assembly_input usage
@@ -116,9 +128,9 @@ workflow METAFLOW {
         }
 
         // Create input channel for reads
-        input_ch = params.input_format == 'csv' ?
+        input_ch = workflow.preview && !params.input ? channel.empty() : params.input_format == 'csv' ?
             createCsvInputChannel(params.input) :
-            Channel.fromFilePairs("${params.input}/*_{1,2}*.{fastq,fastq.gz,fq,fq.gz}")
+            channel.fromFilePairs("${params.input}/*_{1,2}*.{fastq,fastq.gz,fq,fq.gz}")
                 .map { sample_id, reads ->
                     def meta = [id:sample_id, single_end:false, run_id:'default_run', group:'default_group']
                     return tuple(meta, reads)
@@ -126,9 +138,9 @@ workflow METAFLOW {
 
         // Handle pre-computed assemblies or preprocessing
         def cleaned_reads_source
-        def assembly_megahit_contigs_ch = Channel.empty()
-        def assembly_metaspades_contigs_ch = Channel.empty()
-        def assembly_versions_ch = Channel.empty()
+        def assembly_megahit_contigs_ch = channel.empty()
+        def assembly_metaspades_contigs_ch = channel.empty()
+        def assembly_versions_ch = channel.empty()
 
         if (params.assembly_input) {
             // Use pre-computed assemblies - skip preprocessing
@@ -139,9 +151,9 @@ workflow METAFLOW {
             
             // Separate compressed and uncompressed assemblies
             assembly_splits = assembly_input_ch
-                .branch {
-                    compressed: it[1].name.endsWith('.gz')
-                    uncompressed: !it[1].name.endsWith('.gz')
+                .branch { _meta, assembly ->
+                    compressed: assembly.name.endsWith('.gz')
+                    uncompressed: !assembly.name.endsWith('.gz')
                 }
             
             // Decompress gzipped assemblies
@@ -167,20 +179,20 @@ workflow METAFLOW {
         }
 
         // Initialize empty channels with default values
-        def read_based_versions_ch = Channel.empty()
-        def read_based_results_ch = Channel.empty()
-        def read_based_rgi_ch = Channel.empty()
-        def binning_bam_ch = Channel.empty()
-        def binning_versions_ch = Channel.empty()
-        def binning_bins_ch = Channel.empty()
-        def binqc_versions_ch = Channel.empty()
-        def binqc_summary_ch = Channel.empty()
-        def binqc_quast_summary_ch = Channel.empty()
-        def binqc_multiqc_ch = Channel.empty()
-        def binannotation_versions_ch = Channel.empty()
-        def binannotation_multiqc_ch = Channel.empty()
-        def binclassification_versions_ch = Channel.empty()
-        def binclassification_summary_ch = Channel.empty()
+        def read_based_versions_ch = channel.empty()
+        def read_based_results_ch = channel.empty()
+        def read_based_rgi_ch = channel.empty()
+        def binning_bam_ch = channel.empty()
+        def binning_versions_ch = channel.empty()
+        def binning_bins_ch = channel.empty()
+        def binqc_versions_ch = channel.empty()
+        def binqc_summary_ch = channel.empty()
+        def binqc_quast_summary_ch = channel.empty()
+        def binqc_multiqc_ch = channel.empty()
+        def binannotation_versions_ch = channel.empty()
+        def binannotation_multiqc_ch = channel.empty()
+        def binclassification_versions_ch = channel.empty()
+        def binclassification_summary_ch = channel.empty()
 
         // Use cleaned_reads_source for downstream workflows
         if (params.enable_readbase) {
@@ -188,36 +200,36 @@ workflow METAFLOW {
             if (params.enable_singlesketch) {
                 // Use READ_BASED_SINGLERUN for per-sample processing
                 READ_BASED_SINGLERUN(cleaned_reads_source)
-                read_based_versions_ch = READ_BASED_SINGLERUN.out.versions ?: Channel.empty()
-                read_based_results_ch = READ_BASED_SINGLERUN.out.results ?: Channel.empty()
-                read_based_rgi_ch = READ_BASED_SINGLERUN.out.rgi_results ?: Channel.empty()
+                read_based_versions_ch = READ_BASED_SINGLERUN.out.versions ?: channel.empty()
+                read_based_results_ch = READ_BASED_SINGLERUN.out.results ?: channel.empty()
+                read_based_rgi_ch = READ_BASED_SINGLERUN.out.rgi_results ?: channel.empty()
             } else {
                 // Use READ_BASED for batch processing (default)
                 READ_BASED(cleaned_reads_source)
-                read_based_versions_ch = READ_BASED.out.versions ?: Channel.empty()
-                read_based_results_ch = READ_BASED.out.results ?: Channel.empty()
-                read_based_rgi_ch = READ_BASED.out.rgi_results ?: Channel.empty()
+                read_based_versions_ch = READ_BASED.out.versions ?: channel.empty()
+                read_based_results_ch = READ_BASED.out.results ?: channel.empty()
+                read_based_rgi_ch = READ_BASED.out.rgi_results ?: channel.empty()
             }
         } else {
             // Assembly-based pathway
             if (!params.assembly_input) {
                 ASSEMBLY_BASED(cleaned_reads_source)
-                assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: Channel.empty()
-                assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: Channel.empty()
-                assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: Channel.empty()
+                assembly_versions_ch = ASSEMBLY_BASED.out.versions ?: channel.empty()
+                assembly_megahit_contigs_ch = ASSEMBLY_BASED.out.megahit_contigs ?: channel.empty()
+                assembly_metaspades_contigs_ch = ASSEMBLY_BASED.out.metaspades_contigs ?: channel.empty()
             }
 
             def all_assemblies = assembly_megahit_contigs_ch.mix(assembly_metaspades_contigs_ch)
             
             if (!params.skip_binning_bamabund) {
                 BINNING_BAMABUND(all_assemblies, cleaned_reads_source)
-                binning_bam_ch = BINNING_BAMABUND.out.bam_bai ?: Channel.empty()
-                binning_versions_ch = binning_versions_ch.mix(BINNING_BAMABUND.out.versions ?: Channel.empty())
+                binning_bam_ch = BINNING_BAMABUND.out.bam_bai ?: channel.empty()
+                binning_versions_ch = binning_versions_ch.mix(BINNING_BAMABUND.out.versions ?: channel.empty())
 
                 // Run BINNING with outputs from BINNING_BAMABUND
                 if (!params.skip_binning && !params.skip_binning_bamabund) {
                     BINNING(all_assemblies, BINNING_BAMABUND.out.bam_bai)
-                    binning_versions_ch = binning_versions_ch.mix(BINNING.out.versions ?: Channel.empty())
+                    binning_versions_ch = binning_versions_ch.mix(BINNING.out.versions ?: channel.empty())
 
                     // Initialize channels for raw bins with metadata
                     def ch_raw_bins = BINNING.out.all_bins.map { meta, bin ->
@@ -229,7 +241,7 @@ workflow METAFLOW {
                     // ============================================
                     // FIX: Run DOMAIN_CLASSIFICATION BEFORE refinement
                     // ============================================
-                    if (params.bin_domain_classification) {
+                    if (params.bin_domain_classification && (params.skip_binning_refinement || params.postbinning_input != 'refined_bins_only')) {
                         // Group raw bins by assembly for domain classification
                         ch_bins_for_classification = ch_raw_bins
                             .map { meta, bin ->
@@ -239,15 +251,15 @@ workflow METAFLOW {
                                 [group_key, meta_clean, bin]
                             }
                             .groupTuple(by: 0)
-                            .map { key, metas, bins ->
+                            .map { _key, metas, bins ->
                                 [metas[0], bins.flatten()]
                             }
 
-                        DOMAIN_CLASSIFICATION(all_assemblies, ch_bins_for_classification)
-                        binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION.out.versions)
+                        DOMAIN_CLASSIFICATION_RAW(all_assemblies, ch_bins_for_classification)
+                        binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION_RAW.out.versions)
 
                         // Add domain metadata to raw bins
-                        ch_domain_map = DOMAIN_CLASSIFICATION.out.classified_bins
+                        ch_domain_map = DOMAIN_CLASSIFICATION_RAW.out.classified_bins
                             .map { meta, bin ->
                                 def bin_basename = bin.baseName
                                 [bin_basename, meta.domain]
@@ -259,7 +271,7 @@ workflow METAFLOW {
                                 [bin_basename, meta, bin]
                             }
                             .join(ch_domain_map, by: 0, remainder: true)
-                            .map { bin_basename, meta, bin, domain ->
+                            .map { _bin_basename, meta, bin, domain ->
                                 def meta_new = meta.clone()
                                 meta_new.domain = domain ?: 'unclassified'
                                 [meta_new, bin]
@@ -276,7 +288,7 @@ workflow METAFLOW {
                     // Other combinations like CheckM + DAS_TOOL do NOT need CheckM2 database
                     // (e.g., CheckM = legacy checkm v1, DAS_TOOL = only needs contig2bin tables)
                     //
-                    def ch_checkm2_db = Channel.empty()
+                    def ch_checkm2_db = channel.empty()
                     def needs_checkm2_db = (params.binqc_tool == 'checkm2' && !params.skip_binqc) || 
                                            (params.refine_tool == 'binette' && !params.skip_binning_refinement)
                     
@@ -287,21 +299,21 @@ workflow METAFLOW {
                         // Extract just the database path from the tuple (meta, path) and
                         // convert it to a value channel (single shared DB for all downstream tasks)
                         ch_checkm2_db = CHECKM2_DATABASEDOWNLOAD.out.database
-                                                        .map { meta, db -> db }
-                        binning_versions_ch = binning_versions_ch.mix(CHECKM2_DATABASEDOWNLOAD.out.versions)
+                                                        .map { _meta, db -> db }
+                        binning_versions_ch = binning_versions_ch.mix(CHECKM2_DATABASEDOWNLOAD.out.versions_checkm2_databasedownload)
                     } else if (params.checkm2_db) {
                         // Use provided CheckM2 database - pass just the path
-                        ch_checkm2_db = Channel.value(file(params.checkm2_db, checkIfExists: true))
+                        ch_checkm2_db = channel.value(file(params.checkm2_db, checkIfExists: true))
                     } else {
                         // No CheckM2 database needed - create empty channel with null value
                         // This safely handles cases like: CheckM (v1) + DAS_TOOL, BUSCO + DAS_TOOL, etc.
-                        ch_checkm2_db = Channel.value([])
+                        ch_checkm2_db = channel.value([])
                     }
 
                     // ============================================
                     // Run BINNING_REFINEMENT (with domain already set)
                     // ============================================
-                    def ch_refined_bins = Channel.empty()
+                    def ch_refined_bins = channel.empty()
 
                     if (!params.skip_binning_refinement) {
 
@@ -329,19 +341,24 @@ workflow METAFLOW {
                                 [meta_new, bin]
                             }
 
-                        // Re-add domain metadata to refined bins
-                        if (params.bin_domain_classification) {
-                            ch_refined_bins = ch_refined_bins
+                        // Classify refined bins separately because refined bin names
+                        // do not match the original raw-bin basenames.
+                        if (params.bin_domain_classification && params.postbinning_input != 'raw_bins_only') {
+                            ch_refined_bins_for_classification = ch_refined_bins
                                 .map { meta, bin ->
-                                    def bin_basename = bin.baseName
-                                    [bin_basename, meta, bin]
+                                    def meta_clean = meta.clone()
+                                    meta_clean.remove('bin_id')
+                                    def group_key = "${meta_clean.id}_${meta_clean.assembler}"
+                                    [group_key, meta_clean, bin]
                                 }
-                                .join(ch_domain_map, by: 0, remainder: true)
-                                .map { bin_basename, meta, bin, domain ->
-                                    def meta_new = meta.clone()
-                                    meta_new.domain = domain ?: 'unclassified'
-                                    [meta_new, bin]
+                                .groupTuple(by: 0)
+                                .map { _key, metas, bins ->
+                                    [metas[0], bins.flatten()]
                                 }
+
+                            DOMAIN_CLASSIFICATION_REFINED(all_assemblies, ch_refined_bins_for_classification)
+                            ch_refined_bins = DOMAIN_CLASSIFICATION_REFINED.out.classified_bins
+                            binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION_REFINED.out.versions)
                         }
                         
                         binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
@@ -382,10 +399,10 @@ workflow METAFLOW {
                             .groupTuple()
 
                         BIN_QC(ch_bins_for_qc, ch_checkm2_db)
-                        binqc_versions_ch = BIN_QC.out.versions ?: Channel.empty()
-                        binqc_summary_ch = BIN_QC.out.qc_summary ?: Channel.empty()
-                        binqc_quast_summary_ch = BIN_QC.out.quast_summary ?: Channel.empty()
-                        binqc_multiqc_ch = BIN_QC.out.multiqc_files ?: Channel.empty()
+                        binqc_versions_ch = BIN_QC.out.versions ?: channel.empty()
+                        binqc_summary_ch = BIN_QC.out.qc_summary ?: channel.empty()
+                        binqc_quast_summary_ch = BIN_QC.out.quast_summary ?: channel.empty()
+                        binqc_multiqc_ch = BIN_QC.out.multiqc_files ?: channel.empty()
                         binning_versions_ch = binning_versions_ch.mix(binqc_versions_ch)
                     }
 
@@ -394,8 +411,8 @@ workflow METAFLOW {
                         ch_bins_for_annotation = ch_bins_split.for_annotation
 
                         BIN_ANNOTATION(ch_bins_for_annotation)
-                        binannotation_versions_ch = BIN_ANNOTATION.out.versions ?: Channel.empty()
-                        binannotation_multiqc_ch = BIN_ANNOTATION.out.multiqc_files ?: Channel.empty()
+                        binannotation_versions_ch = BIN_ANNOTATION.out.versions ?: channel.empty()
+                        binannotation_multiqc_ch = BIN_ANNOTATION.out.multiqc_files ?: channel.empty()
                         binning_versions_ch = binning_versions_ch.mix(binannotation_versions_ch)
                     }
 
@@ -404,18 +421,18 @@ workflow METAFLOW {
                         ch_bins_for_classification = ch_bins_split.for_classification
 
                         BIN_CLASSIFICATION(ch_bins_for_classification)
-                        binclassification_versions_ch = BIN_CLASSIFICATION.out.versions ?: Channel.empty()
-                        binclassification_summary_ch = BIN_CLASSIFICATION.out.genome_classification ?: Channel.empty()
+                        binclassification_versions_ch = BIN_CLASSIFICATION.out.versions ?: channel.empty()
+                        binclassification_summary_ch = BIN_CLASSIFICATION.out.genome_classification ?: channel.empty()
                         binning_versions_ch = binning_versions_ch.mix(binclassification_versions_ch)
                     }
                 }
             }
         }
 
-        def combined_versions = Channel.empty()
-        combined_versions = combined_versions.mix(assembly_versions_ch ?: Channel.empty())
-        combined_versions = combined_versions.mix(read_based_versions_ch ?: Channel.empty())
-        combined_versions = combined_versions.mix(binning_versions_ch ?: Channel.empty())
+        def combined_versions = channel.empty()
+        combined_versions = combined_versions.mix(assembly_versions_ch ?: channel.empty())
+        combined_versions = combined_versions.mix(read_based_versions_ch ?: channel.empty())
+        combined_versions = combined_versions.mix(binning_versions_ch ?: channel.empty())
 
         // Optional cleanup
         if (params.cleanup) {
@@ -427,7 +444,7 @@ workflow METAFLOW {
                 cleanup_sources << assembly_metaspades_contigs_ch
                 cleanup_sources << binning_bam_ch
             }
-            cleanup_sources = cleanup_sources.findAll { it }
+            cleanup_sources = cleanup_sources.findAll { source -> source }
             if (cleanup_sources) {
                 def cleanup_trigger = cleanup_sources[0]
                 if (cleanup_sources.size() > 1) {
@@ -452,4 +469,10 @@ workflow METAFLOW {
         binqc_multiqc = binqc_multiqc_ch.ifEmpty(null)
         binannotation_multiqc = binannotation_multiqc_ch.ifEmpty(null)
         binclassification_summary = binclassification_summary_ch.ifEmpty(null)
+}
+
+workflow {
+    if (!(workflow.preview && !params.input && !params.assembly_input)) {
+        METAFLOW()
+    }
 }

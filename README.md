@@ -1,8 +1,9 @@
 # metaflow
 
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.2-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
+[![Nextflow](https://img.shields.io/badge/version-%E2%89%A526.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
+[![run with apptainer](https://img.shields.io/badge/run%20with-apptainer-1d355c.svg?labelColor=000000)](https://apptainer.org/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
 [![run with slurm](https://img.shields.io/badge/run%20with-slurm-1AAEE8.svg?labelColor=000000)](https://www.schedmd.com)
 ---
@@ -31,7 +32,7 @@ For step-by-step installation instructions, parameter explanations, and advanced
 ## Pipeline requirements and Installation overview
 
 ### Software environment
-- Nextflow version 24 or later is required as the workflow engine and depends on Java versions 16–22 for execution stability.
+- Nextflow version 26.04.0 or later is required as the workflow engine for metaflow v2.0.0 strict syntax compatibility.
 - Conda or Mamba is used for reproducible package and environment management, with Mamba preferred for faster dependency resolution.
 - Container runtimes such as Docker or Apptainer are optional but improve portability and reproducibility across heterogeneous systems.
 
@@ -44,6 +45,7 @@ For step-by-step installation instructions, parameter explanations, and advanced
 - The pipeline can be obtained via Git cloning, downloading a release archive, or pulling directly with Nextflow for version-controlled deployment.
 - Nextflow installation involves validating Java, downloading the executable, optionally adding it to the system PATH, and verifying functionality.
 - Conda or Mamba installation finalizes the environment setup, with optional container runtime installation to enhance execution consistency.
+- Execution profiles include `conda`, `docker`, and `apptainer`; GPU-capable execution is opt-in with profile combinations such as `docker,gpu` or `apptainer,gpu` on hosts that provide compatible GPU runtime support.
 > [!NOTE]
 > metaflow relies on `sourmash` and `YACHT` for robust taxonomic classification. For detailed setup instructions, please refer to the [Manual Database Setup](https://github.com/tnmquann/profiler_sourmash/wiki/Installation#manual-database-setup-instructions) section.
 
@@ -81,6 +83,8 @@ nextflow run main.nf \
     --yacht_database /path/to/your/yacht_database.json \
     --enable_readbase
 ```
+
+The examples above use `-profile conda`. Use `-profile docker` or `-profile apptainer` for containerized runs, and add `gpu` only when GPU runtime support is available, for example `-profile docker,gpu`.
 
 ### Assembly-based analysis
 For assembly-based workflows, ensure your `sourmash` database is prepared.

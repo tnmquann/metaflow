@@ -58,11 +58,16 @@ output:
           pattern: "*.tsv"
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  versions:
-    - versions.yml:
-        type: file
-        description: File containing software versions
-        pattern: "versions.yml"
+  versions_checkm2_predict:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - checkm2:
+          type: string
+          description: The name of the tool
+      - "checkm2 --version":
+          type: eval
+          description: The expression to obtain the version of the tool
 topics:
   versions:
     - - ${task.process}:

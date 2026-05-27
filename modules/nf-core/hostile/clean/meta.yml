@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: "hostile_clean"
-description: write your description here
+description: Removes host reads from short- and long-read FASTQ sequencing files
 keywords:
   - hostile
   - decontamination
   - human removal
-  - download
   - host removal
   - clean
 tools:
@@ -34,7 +33,6 @@ input:
         type: string
         description: |
           Name of the reference to align against and thus remove mapped reads to.
-          Typically corresponds
     - reference_dir:
         type: directory
         description: |
@@ -45,39 +43,53 @@ input:
           - edam: "http://edamontology.org/data_1049"
 
 output:
-  - fastq:
-      - meta:
+  fastq:
+    - - meta:
           type: map
           description: |
             Groovy Map containing sample information
             e.g. `[ id:'sample1', single_end:false ]`
-      - cleaned_reads/*.fastq.gz:
-          type: map
+      - "*.fastq.gz":
+          type: file
           description: |
-            Groovy Map containing sample information
-            e.g. `[ id:'sample1', single_end:false ]`
+            Cleaned FASTQ files with host reads removed
           pattern: "*.{fastq,fq,fastq.gz,fq.gz}"
           ontologies:
             - edam: "http://edamontology.org/format_1930"
-  - json:
-      - meta:
+  json:
+    - - meta:
           type: map
           description: |
             Groovy Map containing sample information
             e.g. `[ id:'sample1', single_end:false ]`
       - "*.json":
-          type: map
+          type: file
           description: |
-            Groovy Map containing sample information
-            e.g. `[ id:'sample1', single_end:false ]`
+            JSON report containing statistics from hostile cleaning
           pattern: "*.json"
           ontologies:
             - edam: "http://edamontology.org/format_3464"
-  - versions:
-      - versions.yml:
-          type: file
-          description: File containing software versions
-          pattern: "versions.yml"
+  versions_hostile:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - hostile:
+          type: string
+          description: The name of the tool
+      - hostile --version:
+          type: eval
+          description: The expression to obtain the version of the tool
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - hostile:
+          type: string
+          description: The name of the tool
+      - hostile --version:
+          type: eval
+          description: The expression to obtain the version of the tool
 authors:
   - "@jfy133"
 maintainers:

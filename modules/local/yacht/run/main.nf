@@ -19,7 +19,6 @@ process YACHT_RUN {
     path "versions.yml", emit: versions
 
     script:
-    def prefix = task.ext.prefix ?: meta.id ?: 'yacht'
     def args = task.ext.args ?: '' // Added for custom arguments to yacht run
     """
     mkdir -p yacht_results
