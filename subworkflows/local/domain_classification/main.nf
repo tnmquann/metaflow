@@ -45,6 +45,8 @@ workflow DOMAIN_CLASSIFICATION {
             meta_join.remove('bin')
             meta_join.remove('refinement')
             meta_join.remove('bin_id')
+            meta_join.remove('binrefine')
+            meta_join.remove('input_mode')
             [meta_join, meta, contig2bin, bin_list]
         }
 

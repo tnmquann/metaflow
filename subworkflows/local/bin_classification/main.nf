@@ -41,11 +41,11 @@ workflow BIN_CLASSIFICATION {
 
     // Create CSV files for each group
     CREATE_BINS_CSV(ch_bins_grouped)
-    ch_versions = ch_versions.mix(CREATE_BINS_CSV.out.versions.first())
+    ch_versions = ch_versions.mix(CREATE_BINS_CSV.out.versions)
 
     // Step 2: Run sourmash manysketch on CSV files
     SOURMASH_MANYSKETCH_BINS(CREATE_BINS_CSV.out.bins_csv)
-    ch_versions = ch_versions.mix(SOURMASH_MANYSKETCH_BINS.out.versions.first())
+    ch_versions = ch_versions.mix(SOURMASH_MANYSKETCH_BINS.out.versions)
 
     // Use multiMap to split the sketch outputs for parallel processing
     ch_sketch_split = SOURMASH_MANYSKETCH_BINS.out.sketch_zip_file
@@ -59,7 +59,7 @@ workflow BIN_CLASSIFICATION {
         ch_sketch_split.for_fastmultigather,
         file(params.sourmash_database, checkIfExists: true)
     )
-    ch_versions = ch_versions.mix(SOURMASH_FASTMULTIGATHER_BINS.out.versions.first())
+    ch_versions = ch_versions.mix(SOURMASH_FASTMULTIGATHER_BINS.out.versions)
 
     // Step 9: Extract single sketches
     sourmash_extract_zip_script = file("${projectDir}/bin/py_scripts/read_based/sourmash_extract_zip_with_ksize.py", checkIfExists: true)
@@ -68,15 +68,21 @@ workflow BIN_CLASSIFICATION {
         params.sourmash_ksize,
         sourmash_extract_zip_script
     )
-    ch_versions = ch_versions.mix(EXTRACT_SOURMASH_SINGLESKETCHES.out.versions.first())
+    ch_versions = ch_versions.mix(EXTRACT_SOURMASH_SINGLESKETCHES.out.versions)
+
+    // Skip sourmash tax steps for groups with no gather hits.
+    ch_gather_split = SOURMASH_FASTMULTIGATHER_BINS.out.gather_csv.branch { _meta, gather_csv ->
+        nonempty: gather_csv.toFile().length() > 0
+        empty: true
+    }
 
     // Step 4: Run sourmash tax annotate
     // Input: gather_csv from step 3
     SOURMASH_TAXANNOTATE(
-        SOURMASH_FASTMULTIGATHER_BINS.out.gather_csv,
+        ch_gather_split.nonempty,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
     )
-    ch_versions = ch_versions.mix(SOURMASH_TAXANNOTATE.out.versions_sourmash.first())
+    ch_versions = ch_versions.mix(SOURMASH_TAXANNOTATE.out.versions_sourmash)
 
     // Step 5: Run sourmash tax genome
     // Input: TAXANNOTATE output (with-lineages.csv.gz)
@@ -84,7 +90,7 @@ workflow BIN_CLASSIFICATION {
         SOURMASH_TAXANNOTATE.out.result,
         file(params.sourmash_taxonomy_csv, checkIfExists: true)
     )
-    ch_versions = ch_versions.mix(SOURMASH_TAXGENOME.out.versions.first())
+    ch_versions = ch_versions.mix(SOURMASH_TAXGENOME.out.versions)
 
     // Step 6: Combine fastmultigather results by sample ID
     ch_gather_for_combine = SOURMASH_FASTMULTIGATHER_BINS.out.gather_csv
@@ -100,7 +106,7 @@ workflow BIN_CLASSIFICATION {
         }
 
     COMBINE_FASTMULTIGATHER_RESULTS(ch_gather_for_combine)
-    ch_versions = ch_versions.mix(COMBINE_FASTMULTIGATHER_RESULTS.out.versions.first())
+    ch_versions = ch_versions.mix(COMBINE_FASTMULTIGATHER_RESULTS.out.versions)
 
     // Step 7: Combine taxannotate results by sample ID
     // Note: Decompress .gz files before combining
@@ -117,7 +123,7 @@ workflow BIN_CLASSIFICATION {
         }
 
     COMBINE_TAXANNOTATE_RESULTS(ch_taxannotate_for_combine)
-    ch_versions = ch_versions.mix(COMBINE_TAXANNOTATE_RESULTS.out.versions.first())
+    ch_versions = ch_versions.mix(COMBINE_TAXANNOTATE_RESULTS.out.versions)
 
     // Step 8: Combine taxgenome results by sample ID
     ch_taxgenome_for_combine = SOURMASH_TAXGENOME.out.genome_classification
@@ -133,7 +139,7 @@ workflow BIN_CLASSIFICATION {
         }
 
     COMBINE_TAXGENOME_RESULTS(ch_taxgenome_for_combine)
-    ch_versions = ch_versions.mix(COMBINE_TAXGENOME_RESULTS.out.versions.first())
+    ch_versions = ch_versions.mix(COMBINE_TAXGENOME_RESULTS.out.versions)
 
     emit:
     bins_csv             = CREATE_BINS_CSV.out.bins_csv

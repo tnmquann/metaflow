@@ -893,6 +893,24 @@
                     "type": "string",
                     "description": "Institutional config description"
                 },
+                "help": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show the concise pipeline help message and exit.",
+                    "hidden": true
+                },
+                "help_full": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show the full pipeline help message, including hidden parameters, and exit.",
+                    "hidden": true
+                },
+                "show_hidden": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Include hidden parameters when rendering the help message.",
+                    "hidden": true
+                },
                 "trace_report_suffix": {
                     "type": "string",
                     "fa_icon": "far calendar",

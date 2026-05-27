@@ -12,7 +12,10 @@ include { UTILS_NFSCHEMA_PLUGIN } from '../subworkflows/nf-core/utils_nfschema_p
 include { BINNING } from '../subworkflows/local/binning/main'
 include { BINNING_REFINEMENT } from '../subworkflows/local/binning_refinement/main'
 include { BIN_QC } from '../subworkflows/local/bin_qc/main'
-include { DOMAIN_CLASSIFICATION } from '../subworkflows/local/domain_classification/main'
+include {
+    DOMAIN_CLASSIFICATION as DOMAIN_CLASSIFICATION_RAW
+    DOMAIN_CLASSIFICATION as DOMAIN_CLASSIFICATION_REFINED
+} from '../subworkflows/local/domain_classification/main'
 include { BIN_ANNOTATION } from '../subworkflows/local/bin_annotation/main'
 include { BIN_CLASSIFICATION } from '../subworkflows/local/bin_classification/main'
 include { GUNZIP as GUNZIP_ASSEMBLIES } from '../modules/nf-core/gunzip/main'
@@ -238,7 +241,7 @@ workflow METAFLOW {
                     // ============================================
                     // FIX: Run DOMAIN_CLASSIFICATION BEFORE refinement
                     // ============================================
-                    if (params.bin_domain_classification) {
+                    if (params.bin_domain_classification && (params.skip_binning_refinement || params.postbinning_input != 'refined_bins_only')) {
                         // Group raw bins by assembly for domain classification
                         ch_bins_for_classification = ch_raw_bins
                             .map { meta, bin ->
@@ -252,11 +255,11 @@ workflow METAFLOW {
                                 [metas[0], bins.flatten()]
                             }
 
-                        DOMAIN_CLASSIFICATION(all_assemblies, ch_bins_for_classification)
-                        binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION.out.versions)
+                        DOMAIN_CLASSIFICATION_RAW(all_assemblies, ch_bins_for_classification)
+                        binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION_RAW.out.versions)
 
                         // Add domain metadata to raw bins
-                        ch_domain_map = DOMAIN_CLASSIFICATION.out.classified_bins
+                        ch_domain_map = DOMAIN_CLASSIFICATION_RAW.out.classified_bins
                             .map { meta, bin ->
                                 def bin_basename = bin.baseName
                                 [bin_basename, meta.domain]
@@ -338,19 +341,24 @@ workflow METAFLOW {
                                 [meta_new, bin]
                             }
 
-                        // Re-add domain metadata to refined bins
-                        if (params.bin_domain_classification) {
-                            ch_refined_bins = ch_refined_bins
+                        // Classify refined bins separately because refined bin names
+                        // do not match the original raw-bin basenames.
+                        if (params.bin_domain_classification && params.postbinning_input != 'raw_bins_only') {
+                            ch_refined_bins_for_classification = ch_refined_bins
                                 .map { meta, bin ->
-                                    def bin_basename = bin.baseName
-                                    [bin_basename, meta, bin]
+                                    def meta_clean = meta.clone()
+                                    meta_clean.remove('bin_id')
+                                    def group_key = "${meta_clean.id}_${meta_clean.assembler}"
+                                    [group_key, meta_clean, bin]
                                 }
-                                .join(ch_domain_map, by: 0, remainder: true)
-                                .map { _bin_basename, meta, bin, domain ->
-                                    def meta_new = meta.clone()
-                                    meta_new.domain = domain ?: 'unclassified'
-                                    [meta_new, bin]
+                                .groupTuple(by: 0)
+                                .map { _key, metas, bins ->
+                                    [metas[0], bins.flatten()]
                                 }
+
+                            DOMAIN_CLASSIFICATION_REFINED(all_assemblies, ch_refined_bins_for_classification)
+                            ch_refined_bins = DOMAIN_CLASSIFICATION_REFINED.out.classified_bins
+                            binning_versions_ch = binning_versions_ch.mix(DOMAIN_CLASSIFICATION_REFINED.out.versions)
                         }
                         
                         binning_versions_ch = binning_versions_ch.mix(BINNING_REFINEMENT.out.versions)
