@@ -50,7 +50,7 @@ For step-by-step installation instructions, parameter explanations, and advanced
 > metaflow relies on `sourmash` and `YACHT` for robust taxonomic classification. For detailed setup instructions, please refer to the [Manual Database Setup](https://github.com/tnmquann/profiler_sourmash/wiki/Installation#manual-database-setup-instructions) section.
 
 ## Input specifications
-*   **Sample CSV format:**
+*   **Sample CSV format:** `sample_id` is required and must be non-empty for every row.
     ```csv
     sample_id,run_id,group,short_reads_1,short_reads_2,long_reads
     sample1,1,0,data/sample1_1.fq.gz,data/sample1_2.fq.gz,data/sample1.fastq.gz
@@ -86,6 +86,24 @@ nextflow run main.nf \
 
 The examples above use `-profile conda`. Use `-profile docker` or `-profile apptainer` for containerized runs, and add `gpu` only when GPU runtime support is available, for example `-profile docker,gpu`.
 
+### Optional read-based post-processing
+
+Add `--readbased_postprocess` to either read-based execution mode to create downstream-ready outputs from the merged Sourmash-YACHT CSV:
+
+```bash
+nextflow run main.nf \
+    --input /path/to/your/samples.csv \
+    --input_format csv \
+    --outdir /path/to/project_A \
+    --enable_readbase \
+    --readbased_postprocess all \
+    --postprocess_options "--min_coverage 0.05"
+```
+
+Valid modes are `all`, `phyloseq`, `taxburst`, and `rgi_bwt`. The explicit `rgi_bwt` mode requires `--enable_rgi_bwt`. With `all`, RGI-BWT results are included only when RGI-BWT is enabled; otherwise the pipeline warns, skips that output group, and continues with phyloseq and taxburst.
+
+`--postprocess_options` accepts one shell-style option string and safely tokenizes it before invoking `post_processing.py`. For example, the general form `--postprocess_options "--params_1 abc def --params_2 sss ddd"` is passed as the corresponding argument sequence. Use only options supported by the current Python script; a current valid example is `--postprocess_options "--min_coverage 0.05 --use_average"`. If one individual value contains spaces, quote that value inside the outer option string.
+
 ### Assembly-based analysis
 For assembly-based workflows, ensure your `sourmash` database is prepared.
 ```bash
@@ -115,6 +133,10 @@ outdir/
 ├── Trimming/
 ├── Readbased_Analysis/
 │   ├── rgi_bwt/
+│   ├── daa/
+│   │   ├── <prefix>_phyloseq/
+│   │   ├── <prefix>_taxburst/
+│   │   └── <prefix>_rgi_bwt/
 │   └── Sourmash-YACHT/
 │       ├── final_results/
 │       ├── fastmultigather/
@@ -128,6 +150,8 @@ outdir/
 ```
 
 Each directory is created automatically by the pipeline and contains outputs relevant to its analysis step. The results of the ARG read-based analysis will be located in the folder `./Readbased_Analysis/rgi_bwt/`, and the results of the read-based taxonomic classification will be located in `./Readbased_Analysis/Sourmash-YACHT/final_results/`.
+
+Post-processing outputs are always published below `${outdir}/Readbased_Analysis/daa`. Batch mode uses the basename of `outdir` as its prefix (`/path/to/out/` becomes `out`). Single-sketch mode uses the required CSV `sample_id`, or the normalized pairing key derived from directory input filenames (`SAMPLE_001_R1.fastq.gz` and `SAMPLE_001_R2.fastq.gz` become `SAMPLE_001`). Each sample and mode therefore receives a separate top-level directory.
 
 ### Assembly-based subworkflow
 

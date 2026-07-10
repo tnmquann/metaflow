@@ -12,8 +12,30 @@ include { SOURMASH_SIG_TO_ZIP } from '../../../modules/local/sourmash/sig_to_zip
 include { SOURMASH_TAXMETAGENOME as SOURMASH_TAXMETAGENOME_SINGLESKETCH } from '../../../modules/local/sourmash/taxmetagenome/main'
 include { YACHT_RUN_SINGLESKETCH } from '../../../modules/local/yacht/run_singlesketch/main'
 include { PROCESS_READBASED_RESULTS_SINGLESKETCH } from '../../../modules/local/finalize/process_readbased_singlesketch/main'
+include { POSTPROCESS_READBASED } from '../../../modules/local/finalize/postprocess_readbased/main'
 include { RGI_PREPARECARDDB } from '../../../modules/local/rgi/preparecarddb/main'
 include { RGI_BWT } from '../../../modules/local/rgi/bwt/main'
+
+def deriveReadbasedSinglePrefix(meta, input_format) {
+    def raw_prefix = meta?.id?.toString()?.trim()
+    if (!raw_prefix) {
+        throw new IllegalArgumentException('Cannot derive a read-based post-processing prefix because the sample metadata has no id.')
+    }
+
+    if (input_format == 'directory') {
+        raw_prefix = raw_prefix.replaceFirst('([._-])R?[12]$', '')
+    }
+
+    def prefix = raw_prefix
+        .replaceAll('[^A-Za-z0-9._-]+', '_')
+        .replaceAll('^[._-]+', '')
+        .replaceAll('[._-]+$', '')
+
+    if (!prefix) {
+        throw new IllegalArgumentException("Cannot derive a filesystem-safe read-based post-processing prefix from sample id '${meta.id}'.")
+    }
+    return prefix
+}
 
 workflow READ_BASED_SINGLERUN {
     take:
@@ -22,6 +44,9 @@ workflow READ_BASED_SINGLERUN {
     main:
     versions_ch = channel.empty()
     ch_rgi_results = channel.empty() // Channel for RGI results if enabled
+    ch_postprocess_phyloseq = channel.empty()
+    ch_postprocess_taxburst = channel.empty()
+    ch_postprocess_rgi_bwt = channel.empty()
 
     // Validate required parameters for this subworkflow
     if (!params.sourmash_database) {
@@ -134,6 +159,42 @@ workflow READ_BASED_SINGLERUN {
             process_singlesketch_script
         )
         versions_ch = versions_ch.mix(PROCESS_READBASED_RESULTS_SINGLESKETCH.out.versions.first())
+
+        if (params.readbased_postprocess) {
+            def postprocess_script = file("${projectDir}/bin/py_scripts/read_based/post_processing.py", checkIfExists: true)
+            def postprocess_base_ch = PROCESS_READBASED_RESULTS_SINGLESKETCH.out.final_results
+                .map { meta, final_results_dir ->
+                    def output_prefix = deriveReadbasedSinglePrefix(meta, params.input_format)
+                    def merged_sourmash_yacht = file("${final_results_dir}/${meta.id}_merged_sourmash_yacht.csv", checkIfExists: true)
+                    [
+                        meta,
+                        output_prefix,
+                        params.readbased_postprocess,
+                        params.postprocess_options ?: ' ',
+                        merged_sourmash_yacht
+                    ]
+                }
+
+            def postprocess_input_ch
+            if (params.enable_rgi_bwt) {
+                postprocess_input_ch = postprocess_base_ch
+                    .join(RGI_BWT.out.outdir, by: 0)
+                    .map { meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht, rgi_dir ->
+                        [meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht, [rgi_dir]]
+                    }
+            } else {
+                postprocess_input_ch = postprocess_base_ch
+                    .map { meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht ->
+                        [meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht, []]
+                    }
+            }
+
+            POSTPROCESS_READBASED(postprocess_input_ch, postprocess_script)
+            versions_ch = versions_ch.mix(POSTPROCESS_READBASED.out.versions)
+            ch_postprocess_phyloseq = POSTPROCESS_READBASED.out.phyloseq
+            ch_postprocess_taxburst = POSTPROCESS_READBASED.out.taxburst
+            ch_postprocess_rgi_bwt = POSTPROCESS_READBASED.out.rgi_bwt
+        }
     }
 
     emit:
@@ -141,6 +202,9 @@ workflow READ_BASED_SINGLERUN {
     results  = params.skip_yacht ? channel.empty() : PROCESS_READBASED_RESULTS_SINGLESKETCH.out.final_results
 
     rgi_results = ch_rgi_results
+    postprocess_phyloseq = ch_postprocess_phyloseq
+    postprocess_taxburst = ch_postprocess_taxburst
+    postprocess_rgi_bwt = ch_postprocess_rgi_bwt
     gather_csv  = SOURMASH_GATHER_META.out.result
     taxannotate = SOURMASH_TAXANNOTATE_META.out.result
     metagenome_classification = SOURMASH_TAXMETAGENOME_SINGLESKETCH.out.genome_classification

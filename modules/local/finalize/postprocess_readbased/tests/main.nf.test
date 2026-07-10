@@ -1,0 +1,129 @@
+nextflow_process {
+
+    name "Test POSTPROCESS_READBASED process"
+    script "../main.nf"
+    process "POSTPROCESS_READBASED"
+
+    test("phyloseq mode uses a prefixed isolated output") {
+        config "./nextflow.config"
+
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'batch'],
+                    'project_A',
+                    'phyloseq',
+                    '--min_coverage 0.05',
+                    file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
+                    []
+                )
+                input[1] = file("${projectDir}/bin/py_scripts/read_based/post_processing.py")
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.phyloseq.size() == 1 },
+                { assert process.out.taxburst.size() == 0 },
+                { assert process.out.rgi_bwt.size() == 0 },
+                { assert path(process.out.phyloseq[0][1]).getFileName().toString() == 'project_A_phyloseq' },
+                { assert path("${process.out.phyloseq[0][1]}/tax_table.csv").exists() },
+                { assert path("${process.out.phyloseq[0][1]}/otu_table.csv").exists() },
+                { assert path("${process.out.phyloseq[0][1]}/sample_data.csv").exists() }
+            )
+        }
+    }
+
+    test("taxburst mode does not emit unrelated modes") {
+        config "./nextflow.config"
+
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'SAMPLE_001'],
+                    'SAMPLE_001',
+                    'taxburst',
+                    '--min_coverage 0.05',
+                    file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
+                    []
+                )
+                input[1] = file("${projectDir}/bin/py_scripts/read_based/post_processing.py")
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.phyloseq.size() == 0 },
+                { assert process.out.taxburst.size() == 1 },
+                { assert process.out.rgi_bwt.size() == 0 },
+                { assert path(process.out.taxburst[0][1]).getFileName().toString() == 'SAMPLE_001_taxburst' },
+                { assert path("${process.out.taxburst[0][1]}/merged_sourmash_yacht.csv.taxburst.csv").exists() }
+            )
+        }
+    }
+
+    test("all mode emits each available group and preserves RGI sample directories") {
+        config "./nextflow.config"
+
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'batch'],
+                    'project_A',
+                    'all',
+                    '--min_coverage 0.05',
+                    file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
+                    [
+                        file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/rgi/SAMPLE_001"),
+                        file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/rgi/SAMPLE_002")
+                    ]
+                )
+                input[1] = file("${projectDir}/bin/py_scripts/read_based/post_processing.py")
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.phyloseq.size() == 1 },
+                { assert process.out.taxburst.size() == 1 },
+                { assert process.out.rgi_bwt.size() == 1 },
+                { assert path("${process.out.rgi_bwt[0][1]}/SAMPLE_001/SAMPLE_001.gene_mapping_data.txt").exists() },
+                { assert path("${process.out.rgi_bwt[0][1]}/SAMPLE_002/SAMPLE_002.gene_mapping_data.txt").exists() }
+            )
+        }
+    }
+
+    test("module-managed routing arguments cannot be overridden") {
+        config "./nextflow.config"
+
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'batch'],
+                    'project_A',
+                    'phyloseq',
+                    '--output elsewhere',
+                    file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
+                    []
+                )
+                input[1] = file("${projectDir}/bin/py_scripts/read_based/post_processing.py")
+                """
+            }
+        }
+
+        then {
+            assert !process.success
+            assert process.errorReport.contains('postprocess_options cannot override the module-managed argument')
+        }
+    }
+}

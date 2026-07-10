@@ -76,6 +76,7 @@ process PROCESS_READBASED_RESULTS {
     def prefix = task.ext.prefix ?: meta.id ?: 'results'
     """
     mkdir -p final_results
+    touch final_results/merged_sourmash_yacht.csv
     touch final_results/summary_${prefix}.txt
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

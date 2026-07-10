@@ -30,7 +30,11 @@ def createCsvInputChannel(input_path) {
         .splitCsv(header:true, sep:',', strip:true)
         .map { row ->
             def meta = [:]
-            meta.id = row.sample_id ?: "sample_${System.currentTimeMillis()}"
+            def sample_id = row.sample_id?.toString()?.trim()
+            if (!sample_id) {
+                exit 1, 'Missing required sample_id in CSV input.'
+            }
+            meta.id = sample_id
             meta.run_id = row.run_id ?: 'default_run'
             meta.group = row.group ?: 'default_group'
             meta.single_end = false
@@ -60,7 +64,11 @@ def createAssemblyInputChannel(input_path) {
         .splitCsv(header:true, sep:',', strip:true)
         .map { row ->
             def meta = [:]
-            meta.id = row.sample_id ?: "sample_${System.currentTimeMillis()}"
+            def sample_id = row.sample_id?.toString()?.trim()
+            if (!sample_id) {
+                exit 1, 'Missing required sample_id in assembly CSV input.'
+            }
+            meta.id = sample_id
             meta.run_id = row.run_id ?: 'default_run'
             meta.group = row.group ?: 'default_group'
             
@@ -89,6 +97,11 @@ workflow METAFLOW {
     main:
         schema_path = projectDir.name == 'workflow' ? '../nextflow_schema.json' : 'nextflow_schema.json'
 
+        // Normalize nullable option strings before nf-schema validation.
+        def readbased_postprocess = params.readbased_postprocess?.toString()?.trim()
+        params.readbased_postprocess = readbased_postprocess ?: null
+        params.postprocess_options = params.postprocess_options?.toString()?.trim() ?: ''
+
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
         UTILS_NFSCHEMA_PLUGIN (
             workflow,
@@ -102,6 +115,26 @@ workflow METAFLOW {
             '',
             true
         )
+
+        // Preflight: validate optional read-based post-processing dependencies.
+        if (params.readbased_postprocess) {
+            def valid_postprocess_modes = ['all', 'phyloseq', 'taxburst', 'rgi_bwt']
+            if (!params.enable_readbase) {
+                exit 1, 'ERROR: --readbased_postprocess can only be used when --enable_readbase is enabled.'
+            }
+            if (!valid_postprocess_modes.contains(params.readbased_postprocess)) {
+                exit 1, "ERROR: Unsupported --readbased_postprocess value '${params.readbased_postprocess}'. Valid options: all, phyloseq, taxburst, rgi_bwt."
+            }
+            if (params.skip_yacht) {
+                exit 1, 'ERROR: --readbased_postprocess requires the merged Sourmash-YACHT result; disable --skip_yacht.'
+            }
+            if (params.readbased_postprocess == 'rgi_bwt' && !params.enable_rgi_bwt) {
+                exit 1, 'ERROR: --enable_rgi_bwt is required for --readbased_postprocess rgi_bwt.'
+            }
+            if (params.readbased_postprocess == 'all' && !params.enable_rgi_bwt) {
+                log.warn 'readbased_postprocess=all was requested, but RGI-BWT is disabled; the RGI-BWT post-processing output will be skipped while phyloseq and taxburst continue.'
+            }
+        }
 
         // Preflight: validate assembly_input usage
         if (params.assembly_input) {
@@ -128,9 +161,13 @@ workflow METAFLOW {
         }
 
         // Create input channel for reads
+        def directory_pair_patterns = [
+            "${params.input}/*_{1,2}*.{fastq,fastq.gz,fq,fq.gz}",
+            "${params.input}/*_R{1,2}*.{fastq,fastq.gz,fq,fq.gz}"
+        ]
         input_ch = workflow.preview && !params.input ? channel.empty() : params.input_format == 'csv' ?
             createCsvInputChannel(params.input) :
-            channel.fromFilePairs("${params.input}/*_{1,2}*.{fastq,fastq.gz,fq,fq.gz}")
+            channel.fromFilePairs(directory_pair_patterns)
                 .map { sample_id, reads ->
                     def meta = [id:sample_id, single_end:false, run_id:'default_run', group:'default_group']
                     return tuple(meta, reads)
@@ -182,6 +219,9 @@ workflow METAFLOW {
         def read_based_versions_ch = channel.empty()
         def read_based_results_ch = channel.empty()
         def read_based_rgi_ch = channel.empty()
+        def read_based_postprocess_phyloseq_ch = channel.empty()
+        def read_based_postprocess_taxburst_ch = channel.empty()
+        def read_based_postprocess_rgi_bwt_ch = channel.empty()
         def binning_bam_ch = channel.empty()
         def binning_versions_ch = channel.empty()
         def binning_bins_ch = channel.empty()
@@ -203,12 +243,18 @@ workflow METAFLOW {
                 read_based_versions_ch = READ_BASED_SINGLERUN.out.versions ?: channel.empty()
                 read_based_results_ch = READ_BASED_SINGLERUN.out.results ?: channel.empty()
                 read_based_rgi_ch = READ_BASED_SINGLERUN.out.rgi_results ?: channel.empty()
+                read_based_postprocess_phyloseq_ch = READ_BASED_SINGLERUN.out.postprocess_phyloseq ?: channel.empty()
+                read_based_postprocess_taxburst_ch = READ_BASED_SINGLERUN.out.postprocess_taxburst ?: channel.empty()
+                read_based_postprocess_rgi_bwt_ch = READ_BASED_SINGLERUN.out.postprocess_rgi_bwt ?: channel.empty()
             } else {
                 // Use READ_BASED for batch processing (default)
                 READ_BASED(cleaned_reads_source)
                 read_based_versions_ch = READ_BASED.out.versions ?: channel.empty()
                 read_based_results_ch = READ_BASED.out.results ?: channel.empty()
                 read_based_rgi_ch = READ_BASED.out.rgi_results ?: channel.empty()
+                read_based_postprocess_phyloseq_ch = READ_BASED.out.postprocess_phyloseq ?: channel.empty()
+                read_based_postprocess_taxburst_ch = READ_BASED.out.postprocess_taxburst ?: channel.empty()
+                read_based_postprocess_rgi_bwt_ch = READ_BASED.out.postprocess_rgi_bwt ?: channel.empty()
             }
         } else {
             // Assembly-based pathway
@@ -460,6 +506,9 @@ workflow METAFLOW {
         versions = combined_versions.ifEmpty(null)
         results = read_based_results_ch.ifEmpty(null)
         read_based_rgi = read_based_rgi_ch.ifEmpty(null)
+        read_based_postprocess_phyloseq = read_based_postprocess_phyloseq_ch.ifEmpty(null)
+        read_based_postprocess_taxburst = read_based_postprocess_taxburst_ch.ifEmpty(null)
+        read_based_postprocess_rgi_bwt = read_based_postprocess_rgi_bwt_ch.ifEmpty(null)
         assembly_megahit_contigs = assembly_megahit_contigs_ch.ifEmpty(null)
         assembly_metaspades_contigs = assembly_metaspades_contigs_ch.ifEmpty(null)
         binning_bam = binning_bam_ch.ifEmpty(null)
