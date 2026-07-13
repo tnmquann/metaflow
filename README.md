@@ -100,7 +100,7 @@ nextflow run main.nf \
     --postprocess_options "--min_coverage 0.05"
 ```
 
-Valid modes are `all`, `phyloseq`, `taxburst`, and `rgi_bwt`. The explicit `rgi_bwt` mode requires `--enable_rgi_bwt`. With `all`, RGI-BWT results are included only when RGI-BWT is enabled; otherwise the pipeline warns, skips that output group, and continues with phyloseq and taxburst.
+Valid modes are `all`, `phyloseq`, `taxburst`, and `rgi_bwt`. The explicit `rgi_bwt` mode requires `--enable_rgi_bwt`. With `all`, the pipeline also writes the standard default processed CSV; RGI-BWT results are included only when RGI-BWT is enabled, otherwise the pipeline warns, skips that output group, and continues with default, phyloseq, and taxburst.
 
 `--postprocess_options` accepts one shell-style option string and safely tokenizes it before invoking `post_processing.py`. For example, the general form `--postprocess_options "--params_1 abc def --params_2 sss ddd"` is passed as the corresponding argument sequence. Use only options supported by the current Python script; a current valid example is `--postprocess_options "--min_coverage 0.05 --use_average"`. If one individual value contains spaces, quote that value inside the outer option string.
 
@@ -133,10 +133,16 @@ outdir/
 ├── Trimming/
 ├── Readbased_Analysis/
 │   ├── rgi_bwt/
-│   ├── daa/
-│   │   ├── <prefix>_phyloseq/
-│   │   ├── <prefix>_taxburst/
-│   │   └── <prefix>_rgi_bwt/
+│   ├── Post_processing/
+│   │   ├── <batch-prefix>_default/
+│   │   ├── <batch-prefix>_phyloseq/
+│   │   ├── <batch-prefix>_taxburst/
+│   │   ├── <batch-prefix>_rgi_bwt/
+│   │   └── <sample_id>/
+│   │       ├── default/
+│   │       ├── phyloseq/
+│   │       ├── taxburst/
+│   │       └── rgi_bwt/
 │   └── Sourmash-YACHT/
 │       ├── final_results/
 │       ├── fastmultigather/
@@ -151,7 +157,7 @@ outdir/
 
 Each directory is created automatically by the pipeline and contains outputs relevant to its analysis step. The results of the ARG read-based analysis will be located in the folder `./Readbased_Analysis/rgi_bwt/`, and the results of the read-based taxonomic classification will be located in `./Readbased_Analysis/Sourmash-YACHT/final_results/`.
 
-Post-processing outputs are always published below `${outdir}/Readbased_Analysis/daa`. Batch mode uses the basename of `outdir` as its prefix (`/path/to/out/` becomes `out`). Single-sketch mode uses the required CSV `sample_id`, or the normalized pairing key derived from directory input filenames (`SAMPLE_001_R1.fastq.gz` and `SAMPLE_001_R2.fastq.gz` become `SAMPLE_001`). Each sample and mode therefore receives a separate top-level directory.
+Post-processing outputs are always published below `${outdir}/Readbased_Analysis/Post_processing`. Batch mode keeps the existing `<batch-prefix>_<mode>` layout, where the prefix is the basename of `outdir` (`/path/to/out/` becomes `out`). With `--readbased_postprocess all`, it also writes `<batch-prefix>_default/<batch-prefix>.processed_metaflow.csv`. Single-sketch mode uses the required CSV `sample_id`, or the normalized pairing key derived from directory input filenames (`SAMPLE_001_R1.fastq.gz` and `SAMPLE_001_R2.fastq.gz` become `SAMPLE_001`), and publishes all-mode outputs as `<sample_id>/<default|phyloseq|taxburst|rgi_bwt>`; its default CSV is `<sample_id>/default/<sample_id>.processed_metaflow.csv` and its RGI-BWT directory contains only direct `*.gene_mapping_data.txt` files. It also concatenates every sample's merged read-based table and publishes combined `<batch-prefix>_default`, `<batch-prefix>_phyloseq`, and `<batch-prefix>_taxburst` sets; its combined RGI-BWT group contains those same per-sample-named mapping files directly in `<batch-prefix>_rgi_bwt/`.
 
 ### Assembly-based subworkflow
 

@@ -13,8 +13,27 @@ include { SOURMASH_TAXMETAGENOME as SOURMASH_TAXMETAGENOME_SINGLESKETCH } from '
 include { YACHT_RUN_SINGLESKETCH } from '../../../modules/local/yacht/run_singlesketch/main'
 include { PROCESS_READBASED_RESULTS_SINGLESKETCH } from '../../../modules/local/finalize/process_readbased_singlesketch/main'
 include { POSTPROCESS_READBASED } from '../../../modules/local/finalize/postprocess_readbased/main'
+include { MERGE_READBASED_POSTPROCESS_INPUTS } from '../../../modules/local/finalize/merge_readbased_postprocess_inputs/main'
 include { RGI_PREPARECARDDB } from '../../../modules/local/rgi/preparecarddb/main'
 include { RGI_BWT } from '../../../modules/local/rgi/bwt/main'
+
+def deriveReadbasedBatchPrefix(outdir) {
+    def normalized = outdir?.toString()?.trim()?.replaceAll('/+$', '')
+    if (!normalized) {
+        throw new IllegalArgumentException('Cannot derive a read-based post-processing prefix from an empty --outdir value.')
+    }
+
+    def basename = normalized.tokenize('/').last()
+    def prefix = basename
+        .replaceAll('[^A-Za-z0-9._-]+', '_')
+        .replaceAll('^[._-]+', '')
+        .replaceAll('[._-]+$', '')
+
+    if (!prefix) {
+        throw new IllegalArgumentException("Cannot derive a filesystem-safe read-based post-processing prefix from --outdir '${outdir}'.")
+    }
+    return prefix
+}
 
 def deriveReadbasedSinglePrefix(meta, input_format) {
     def raw_prefix = meta?.id?.toString()?.trim()
@@ -44,6 +63,7 @@ workflow READ_BASED_SINGLERUN {
     main:
     versions_ch = channel.empty()
     ch_rgi_results = channel.empty() // Channel for RGI results if enabled
+    ch_postprocess_default = channel.empty()
     ch_postprocess_phyloseq = channel.empty()
     ch_postprocess_taxburst = channel.empty()
     ch_postprocess_rgi_bwt = channel.empty()
@@ -170,6 +190,8 @@ workflow READ_BASED_SINGLERUN {
                         meta,
                         output_prefix,
                         params.readbased_postprocess,
+                        true,
+                        true,
                         params.postprocess_options ?: ' ',
                         merged_sourmash_yacht
                     ]
@@ -179,18 +201,53 @@ workflow READ_BASED_SINGLERUN {
             if (params.enable_rgi_bwt) {
                 postprocess_input_ch = postprocess_base_ch
                     .join(RGI_BWT.out.outdir, by: 0)
-                    .map { meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht, rgi_dir ->
-                        [meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht, [rgi_dir]]
+                    .map { meta, output_prefix, mode, single_sample_layout, rgi_gene_mapping_only, postprocess_options, merged_sourmash_yacht, rgi_dir ->
+                        [meta, output_prefix, mode, single_sample_layout, rgi_gene_mapping_only, postprocess_options, merged_sourmash_yacht, [rgi_dir]]
                     }
             } else {
                 postprocess_input_ch = postprocess_base_ch
-                    .map { meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht ->
-                        [meta, output_prefix, mode, postprocess_options, merged_sourmash_yacht, []]
+                    .map { meta, output_prefix, mode, single_sample_layout, rgi_gene_mapping_only, postprocess_options, merged_sourmash_yacht ->
+                        [meta, output_prefix, mode, single_sample_layout, rgi_gene_mapping_only, postprocess_options, merged_sourmash_yacht, []]
                     }
             }
 
-            POSTPROCESS_READBASED(postprocess_input_ch, postprocess_script)
+            def aggregate_output_prefix = deriveReadbasedBatchPrefix(params.outdir)
+            def aggregate_meta = [id: aggregate_output_prefix]
+            def aggregate_merged_inputs_ch = PROCESS_READBASED_RESULTS_SINGLESKETCH.out.final_results
+                .map { meta, final_results_dir ->
+                    file("${final_results_dir}/${meta.id}_merged_sourmash_yacht.csv", checkIfExists: true)
+                }
+                .collect()
+                .map { merged_inputs -> [aggregate_meta, merged_inputs] }
+
+            MERGE_READBASED_POSTPROCESS_INPUTS(aggregate_merged_inputs_ch)
+            versions_ch = versions_ch.mix(MERGE_READBASED_POSTPROCESS_INPUTS.out.versions)
+
+            def aggregate_rgi_bundle_ch = params.enable_rgi_bwt ?
+                RGI_BWT.out.outdir
+                    .map { _meta, rgi_dir -> rgi_dir }
+                    .collect()
+                    .map { rgi_dirs -> [rgi_dirs] } :
+                channel.value([[]])
+
+            def aggregate_postprocess_input_ch = MERGE_READBASED_POSTPROCESS_INPUTS.out.merged_csv
+                .combine(aggregate_rgi_bundle_ch)
+                .map { meta, merged_sourmash_yacht, rgi_dirs ->
+                    [
+                        meta,
+                        aggregate_output_prefix,
+                        params.readbased_postprocess,
+                        false,
+                        true,
+                        params.postprocess_options ?: ' ',
+                        merged_sourmash_yacht,
+                        rgi_dirs
+                    ]
+                }
+
+            POSTPROCESS_READBASED(postprocess_input_ch.mix(aggregate_postprocess_input_ch), postprocess_script)
             versions_ch = versions_ch.mix(POSTPROCESS_READBASED.out.versions)
+            ch_postprocess_default = POSTPROCESS_READBASED.out.default_output
             ch_postprocess_phyloseq = POSTPROCESS_READBASED.out.phyloseq
             ch_postprocess_taxburst = POSTPROCESS_READBASED.out.taxburst
             ch_postprocess_rgi_bwt = POSTPROCESS_READBASED.out.rgi_bwt
@@ -202,6 +259,7 @@ workflow READ_BASED_SINGLERUN {
     results  = params.skip_yacht ? channel.empty() : PROCESS_READBASED_RESULTS_SINGLESKETCH.out.final_results
 
     rgi_results = ch_rgi_results
+    postprocess_default = ch_postprocess_default
     postprocess_phyloseq = ch_postprocess_phyloseq
     postprocess_taxburst = ch_postprocess_taxburst
     postprocess_rgi_bwt = ch_postprocess_rgi_bwt

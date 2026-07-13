@@ -14,6 +14,8 @@ nextflow_process {
                     [id: 'batch'],
                     'project_A',
                     'phyloseq',
+                    false,
+                    false,
                     '--min_coverage 0.05',
                     file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
                     []
@@ -26,6 +28,7 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
+                { assert process.out.default_output.size() == 0 },
                 { assert process.out.phyloseq.size() == 1 },
                 { assert process.out.taxburst.size() == 0 },
                 { assert process.out.rgi_bwt.size() == 0 },
@@ -47,6 +50,8 @@ nextflow_process {
                     [id: 'SAMPLE_001'],
                     'SAMPLE_001',
                     'taxburst',
+                    true,
+                    true,
                     '--min_coverage 0.05',
                     file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
                     []
@@ -59,6 +64,7 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
+                { assert process.out.default_output.size() == 0 },
                 { assert process.out.phyloseq.size() == 0 },
                 { assert process.out.taxburst.size() == 1 },
                 { assert process.out.rgi_bwt.size() == 0 },
@@ -78,6 +84,8 @@ nextflow_process {
                     [id: 'batch'],
                     'project_A',
                     'all',
+                    false,
+                    false,
                     '--min_coverage 0.05',
                     file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
                     [
@@ -93,11 +101,48 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
+                { assert process.out.default_output.size() == 1 },
                 { assert process.out.phyloseq.size() == 1 },
                 { assert process.out.taxburst.size() == 1 },
                 { assert process.out.rgi_bwt.size() == 1 },
                 { assert path("${process.out.rgi_bwt[0][1]}/SAMPLE_001/SAMPLE_001.gene_mapping_data.txt").exists() },
-                { assert path("${process.out.rgi_bwt[0][1]}/SAMPLE_002/SAMPLE_002.gene_mapping_data.txt").exists() }
+                { assert path("${process.out.rgi_bwt[0][1]}/SAMPLE_002/SAMPLE_002.gene_mapping_data.txt").exists() },
+                { assert path("${process.out.default_output[0][1]}/project_A.processed_metaflow.csv").exists() }
+            )
+        }
+    }
+
+    test("single-sketch RGI output contains only direct gene-mapping data") {
+        config "./nextflow.config"
+
+        when {
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'SAMPLE_001'],
+                    'SAMPLE_001',
+                    'rgi_bwt',
+                    true,
+                    true,
+                    '',
+                    file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
+                    [
+                        file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/rgi/SAMPLE_001")
+                    ]
+                )
+                input[1] = file("${projectDir}/bin/py_scripts/read_based/post_processing.py")
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.default_output.size() == 0 },
+                { assert process.out.rgi_bwt.size() == 1 },
+                { assert path("${process.out.rgi_bwt[0][1]}/SAMPLE_001.gene_mapping_data.txt").exists() },
+                { assert !path("${process.out.rgi_bwt[0][1]}/SAMPLE_001").exists() },
+                { assert !path("${process.out.rgi_bwt[0][1]}/SAMPLE_001.alignment_stats.txt").exists() }
             )
         }
     }
@@ -112,6 +157,8 @@ nextflow_process {
                     [id: 'batch'],
                     'project_A',
                     'phyloseq',
+                    false,
+                    false,
                     '--output elsewhere',
                     file("${projectDir}/modules/local/finalize/postprocess_readbased/tests/data/merged_sourmash_yacht.csv"),
                     []

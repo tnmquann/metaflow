@@ -140,7 +140,7 @@
                 "readbased_postprocess": {
                     "type": "string",
                     "enum": ["all", "phyloseq", "taxburst", "rgi_bwt"],
-                    "description": "Optional post-processing mode for merged read-based Sourmash-YACHT results. Requires enable_readbase. The all mode creates phyloseq and taxburst outputs and also collects RGI-BWT outputs when enable_rgi_bwt is enabled.",
+                    "description": "Optional post-processing mode for merged read-based Sourmash-YACHT results. Requires enable_readbase. The all mode creates default, phyloseq, and taxburst outputs and also collects RGI-BWT outputs when enable_rgi_bwt is enabled.",
                     "help_text": "Valid values: all, phyloseq, taxburst, rgi_bwt. The rgi_bwt mode requires --enable_rgi_bwt. With all and RGI-BWT disabled, only the RGI-BWT output is skipped and the pipeline continues with a warning."
                 },
                 "postprocess_options": {

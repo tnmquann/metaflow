@@ -42,6 +42,7 @@ workflow READ_BASED {
     main:
     versions_ch = channel.empty()
     ch_rgi_results = channel.empty() // Channel for RGI results if enabled
+    ch_postprocess_default = channel.empty()
     ch_postprocess_phyloseq = channel.empty()
     ch_postprocess_taxburst = channel.empty()
     ch_postprocess_rgi_bwt = channel.empty()
@@ -185,6 +186,8 @@ workflow READ_BASED {
                         meta,
                         output_prefix,
                         params.readbased_postprocess,
+                        false,
+                        false,
                         params.postprocess_options ?: ' ',
                         merged_sourmash_yacht,
                         rgi_dirs
@@ -193,6 +196,7 @@ workflow READ_BASED {
 
             POSTPROCESS_READBASED(postprocess_input_ch, postprocess_script)
             versions_ch = versions_ch.mix(POSTPROCESS_READBASED.out.versions)
+            ch_postprocess_default = POSTPROCESS_READBASED.out.default_output
             ch_postprocess_phyloseq = POSTPROCESS_READBASED.out.phyloseq
             ch_postprocess_taxburst = POSTPROCESS_READBASED.out.taxburst
             ch_postprocess_rgi_bwt = POSTPROCESS_READBASED.out.rgi_bwt
@@ -211,6 +215,7 @@ workflow READ_BASED {
     results  = params.skip_yacht ? channel.empty() : PROCESS_READBASED_RESULTS.out.final_results
 
     rgi_results = ch_rgi_results
+    postprocess_default = ch_postprocess_default
     postprocess_phyloseq = ch_postprocess_phyloseq
     postprocess_taxburst = ch_postprocess_taxburst
     postprocess_rgi_bwt = ch_postprocess_rgi_bwt
