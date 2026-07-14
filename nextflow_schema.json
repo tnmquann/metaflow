@@ -15,7 +15,7 @@
                 "input": {
                     "type": "string",
                     "exists": true,
-                    "description": "Path to input CSV file containing sample information or directory containing FASTQ files"
+                    "description": "Path to an input CSV file with a required non-empty sample_id column, or a directory containing paired FASTQ files"
                 },
                 "outdir": {
                     "type": "string",
@@ -136,6 +136,17 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Enable per-sample processing mode using SOURMASH_SKETCH and SOURMASH_GATHER instead of batch processing with SOURMASH_MANYSKETCH and SOURMASH_FASTMULTIGATHER. Useful for HPC environments where per-sample job control is needed."
+                },
+                "readbased_postprocess": {
+                    "type": "string",
+                    "enum": ["all", "phyloseq", "taxburst", "rgi_bwt"],
+                    "description": "Optional post-processing mode for merged read-based Sourmash-YACHT results. Requires enable_readbase. The all mode creates default, phyloseq, and taxburst outputs and also collects RGI-BWT outputs when enable_rgi_bwt is enabled.",
+                    "help_text": "Valid values: all, phyloseq, taxburst, rgi_bwt. The rgi_bwt mode requires --enable_rgi_bwt. With all and RGI-BWT disabled, only the RGI-BWT output is skipped and the pipeline continues with a warning."
+                },
+                "postprocess_options": {
+                    "type": "string",
+                    "description": "Additional supported command-line options passed safely to bin/py_scripts/read_based/post_processing.py.",
+                    "help_text": "Use only options supported by post_processing.py, such as --min_coverage 0.05 or --use_average. Module-managed input, input_format, output, and output_format arguments cannot be overridden. Options must be compatible with every selected output mode."
                 },
                 "enable_rgi_bwt": {
                     "type": "boolean",

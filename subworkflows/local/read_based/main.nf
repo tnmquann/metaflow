@@ -13,8 +13,27 @@ include { SOURMASH_FASTMULTIGATHER as SOURMASH_FASTMULTIGATHER_META } from '../.
 include { SOURMASH_TAXMETAGENOME } from '../../../modules/local/sourmash/taxmetagenome/main'
 include { YACHT_RUN } from '../../../modules/local/yacht/run/main'
 include { PROCESS_READBASED_RESULTS } from '../../../modules/local/finalize/process_readbased/main'
+include { POSTPROCESS_READBASED } from '../../../modules/local/finalize/postprocess_readbased/main'
 include { RGI_PREPARECARDDB } from '../../../modules/local/rgi/preparecarddb/main'
 include { RGI_BWT } from '../../../modules/local/rgi/bwt/main'
+
+def deriveReadbasedBatchPrefix(outdir) {
+    def normalized = outdir?.toString()?.trim()?.replaceAll('/+$', '')
+    if (!normalized) {
+        throw new IllegalArgumentException('Cannot derive a read-based post-processing prefix from an empty --outdir value.')
+    }
+
+    def basename = normalized.tokenize('/').last()
+    def prefix = basename
+        .replaceAll('[^A-Za-z0-9._-]+', '_')
+        .replaceAll('^[._-]+', '')
+        .replaceAll('[._-]+$', '')
+
+    if (!prefix) {
+        throw new IllegalArgumentException("Cannot derive a filesystem-safe read-based post-processing prefix from --outdir '${outdir}'.")
+    }
+    return prefix
+}
 
 workflow READ_BASED {
     take:
@@ -23,6 +42,10 @@ workflow READ_BASED {
     main:
     versions_ch = channel.empty()
     ch_rgi_results = channel.empty() // Channel for RGI results if enabled
+    ch_postprocess_default = channel.empty()
+    ch_postprocess_phyloseq = channel.empty()
+    ch_postprocess_taxburst = channel.empty()
+    ch_postprocess_rgi_bwt = channel.empty()
 
     // Validate required parameters for this subworkflow
     if (!params.sourmash_database) {
@@ -144,6 +167,40 @@ workflow READ_BASED {
             merged_yacht_sourmash_script
         )
         versions_ch = versions_ch.mix(PROCESS_READBASED_RESULTS.out.versions.first())
+
+        if (params.readbased_postprocess) {
+            def output_prefix = deriveReadbasedBatchPrefix(params.outdir)
+            def postprocess_script = file("${projectDir}/bin/py_scripts/read_based/post_processing.py", checkIfExists: true)
+            def rgi_bundle_ch = params.enable_rgi_bwt ?
+                RGI_BWT.out.outdir
+                    .map { _meta, rgi_dir -> rgi_dir }
+                    .collect()
+                    .map { rgi_dirs -> [rgi_dirs] } :
+                channel.value([[]])
+
+            def postprocess_input_ch = PROCESS_READBASED_RESULTS.out.final_results
+                .combine(rgi_bundle_ch)
+                .map { meta, final_results_dir, rgi_dirs ->
+                    def merged_sourmash_yacht = file("${final_results_dir}/merged_sourmash_yacht.csv", checkIfExists: true)
+                    [
+                        meta,
+                        output_prefix,
+                        params.readbased_postprocess,
+                        false,
+                        false,
+                        params.postprocess_options ?: ' ',
+                        merged_sourmash_yacht,
+                        rgi_dirs
+                    ]
+                }
+
+            POSTPROCESS_READBASED(postprocess_input_ch, postprocess_script)
+            versions_ch = versions_ch.mix(POSTPROCESS_READBASED.out.versions)
+            ch_postprocess_default = POSTPROCESS_READBASED.out.default_output
+            ch_postprocess_phyloseq = POSTPROCESS_READBASED.out.phyloseq
+            ch_postprocess_taxburst = POSTPROCESS_READBASED.out.taxburst
+            ch_postprocess_rgi_bwt = POSTPROCESS_READBASED.out.rgi_bwt
+        }
     }
 
     // Step 8
@@ -158,6 +215,10 @@ workflow READ_BASED {
     results  = params.skip_yacht ? channel.empty() : PROCESS_READBASED_RESULTS.out.final_results
 
     rgi_results = ch_rgi_results
+    postprocess_default = ch_postprocess_default
+    postprocess_phyloseq = ch_postprocess_phyloseq
+    postprocess_taxburst = ch_postprocess_taxburst
+    postprocess_rgi_bwt = ch_postprocess_rgi_bwt
     gather_csv  = SOURMASH_FASTMULTIGATHER_META.out.gather_csv
     taxannotate = SOURMASH_TAXANNOTATE_META.out.result
     metagenome_classification = SOURMASH_TAXMETAGENOME.out.genome_classification

@@ -54,9 +54,9 @@ process PROCESS_READBASED_RESULTS_SINGLESKETCH {
     stub:
     def prefix = task.ext.prefix ?: meta.id ?: 'sample'
     """
-    mkdir -p ${prefix}
+    mkdir -p ${prefix}_processedresult
     mkdir -p yacht_processed
-    touch ${prefix}/${prefix}_merged_sourmash_yacht.csv
+    touch ${prefix}_processedresult/${prefix}_merged_sourmash_yacht.csv
     touch yacht_processed/${prefix}_yacht.xlsx
     
     cat <<-END_VERSIONS > versions.yml

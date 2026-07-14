@@ -1,0 +1,2 @@
+WGS_ID,organism_name,relative_abundance,file_name,median_abund,average_abund,p_vals
+SAMPLE_B,Organism_B,0.40,library/SAMPLE_B.fastq.gz,20,22,0.05
