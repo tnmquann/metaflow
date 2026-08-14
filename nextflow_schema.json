@@ -143,10 +143,11 @@
                     "description": "Optional post-processing mode for merged read-based Sourmash-YACHT results. Requires enable_readbase. The all mode creates default, phyloseq, and taxburst outputs and also collects RGI-BWT outputs when enable_rgi_bwt is enabled.",
                     "help_text": "Valid values: all, phyloseq, taxburst, rgi_bwt. The rgi_bwt mode requires --enable_rgi_bwt. With all and RGI-BWT disabled, only the RGI-BWT output is skipped and the pipeline continues with a warning."
                 },
-                "postprocess_options": {
+                "readbased_postprocess_options": {
                     "type": "string",
-                    "description": "Additional supported command-line options passed safely to bin/py_scripts/read_based/post_processing.py.",
-                    "help_text": "Use only options supported by post_processing.py, such as --min_coverage 0.05 or --use_average. Module-managed input, input_format, output, and output_format arguments cannot be overridden. Options must be compatible with every selected output mode."
+                    "default": "--min_coverage 0.05",
+                    "description": "Additional supported command-line options passed safely to bin/py_scripts/read_based/post_processing.py. Defaults to filtering YACHT results at min_coverage 0.05.",
+                    "help_text": "Default: --min_coverage 0.05. Override this string to use another supported threshold or option, such as --min_coverage 0.1 --use_average. Module-managed input, input_format, output, and output_format arguments cannot be overridden. Options must be compatible with every selected output mode."
                 },
                 "enable_rgi_bwt": {
                     "type": "boolean",

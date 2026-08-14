@@ -39,7 +39,7 @@ process POSTPROCESS_READBASED {
     for argument in extra_args:
         if argument in reserved or any(argument.startswith(f"{flag}=") for flag in reserved):
             raise SystemExit(
-                f"postprocess_options cannot override the module-managed argument: {argument}"
+                f"readbased_postprocess_options cannot override the module-managed argument: {argument}"
             )
 
     command = [

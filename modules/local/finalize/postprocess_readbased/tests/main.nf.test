@@ -170,7 +170,7 @@ nextflow_process {
 
         then {
             assert !process.success
-            assert process.errorReport.contains('postprocess_options cannot override the module-managed argument')
+            assert process.errorReport.contains('readbased_postprocess_options cannot override the module-managed argument')
         }
     }
 }

@@ -100,7 +100,7 @@ workflow METAFLOW {
         // Normalize nullable option strings before nf-schema validation.
         def readbased_postprocess = params.readbased_postprocess?.toString()?.trim()
         params.readbased_postprocess = readbased_postprocess ?: null
-        params.postprocess_options = params.postprocess_options?.toString()?.trim() ?: ''
+        params.readbased_postprocess_options = params.readbased_postprocess_options?.toString()?.trim() ?: ''
 
         // Parameter validation using UTILS_NFSCHEMA_PLUGIN
         UTILS_NFSCHEMA_PLUGIN (

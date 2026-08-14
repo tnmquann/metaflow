@@ -188,7 +188,7 @@ workflow READ_BASED {
                         params.readbased_postprocess,
                         false,
                         false,
-                        params.postprocess_options ?: ' ',
+                        params.readbased_postprocess_options ?: ' ',
                         merged_sourmash_yacht,
                         rgi_dirs
                     ]
